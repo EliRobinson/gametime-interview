@@ -13,6 +13,9 @@
     "react": "*",
     "react-native": "*"
   },
+  "dependencies": {
+    "@repo/utils": "workspace:*"
+  },
   "devDependencies": {
     "@repo/config": "workspace:*",
     "@repo/tokens": "workspace:*",

@@ -53,11 +53,22 @@ beforeEach(() => {
 
 describe('CheckoutScreen', () => {
   it('shows a loading state, then the active checkout state once resumed', async () => {
-    resume.mockResolvedValue(activeSession);
+    // Keep resume pending until after the first paint so we can assert loading —
+    // mockResolvedValue settles inside RTL's act() and skips straight to ready.
+    let resolveResume!: (session: CheckoutSession) => void;
+    resume.mockImplementation(
+      () =>
+        new Promise<CheckoutSession>((resolve) => {
+          resolveResume = resolve;
+        }),
+    );
 
     render(<CheckoutScreen />);
 
     expect(screen.getByText(/finding your checkout/i)).toBeTruthy();
+
+    resolveResume(activeSession);
+
     await waitFor(() => expect(screen.getByTestId('complete-button')).toBeTruthy());
     expect(screen.getByText('$42.00')).toBeTruthy();
   });

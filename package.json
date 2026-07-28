@@ -7,7 +7,7 @@
     "packages/*"
   ],
   "scripts": {
-    "dev": "turbo run dev",
+    "dev": "turbo run dev --filter=api --filter=web --filter=mobile-web",
     "dev:mobile-web": "turbo run dev --filter=mobile-web",
     "dev:api": "turbo run dev --filter=api",
     "dev:web": "turbo run dev --filter=web",

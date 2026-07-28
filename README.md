@@ -36,9 +36,8 @@ how it's built and how to run it.
 pnpm install
 cp apps/api/.env.example apps/api/.env   # DATABASE_URL only matters for the users demo route
 
-pnpm dev:api          # Fastify + tRPC on :4000
-pnpm dev:web          # Next.js checkout on :3001
-pnpm dev:mobile-web   # Expo — press i for the iOS Simulator
+pnpm dev              # api :4000 · web :3001 · mobile-web (Expo) together via Turborepo
+# Or individually: pnpm dev:api / pnpm dev:web / pnpm dev:mobile-web
 ```
 
 Create a session, then open it on either surface:
@@ -211,8 +210,8 @@ cp apps/api/.env.example apps/api/.env   # set DATABASE_URL
 pnpm --filter api prisma:generate
 pnpm --filter api prisma:migrate
 
-pnpm dev:api          # starts the Fastify/tRPC server on :4000
-pnpm dev:mobile-web   # starts Expo — press i / a / w for iOS/Android/web
+pnpm dev              # api :4000 · web :3001 · mobile-web (Expo) together
+# Or: pnpm dev:api / pnpm dev:web / pnpm dev:mobile-web
 ```
 
 ## Common commands

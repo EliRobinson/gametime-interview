@@ -43,8 +43,22 @@ describe('CheckoutCard', () => {
       />,
     );
 
+    expect(screen.getByTestId('price-changed-banner').props.accessibilityRole).toBe('alert');
     expect(screen.getByTestId('confirm-price-button')).toBeTruthy();
     expect(screen.getByText(CHECKOUT_COPY.confirmNewPrice)).toBeTruthy();
+  });
+
+  it('mentions new price in price_changed banner when newPriceCents is set', () => {
+    render(
+      <CheckoutCard
+        view={{ kind: 'price_changed', session: activeSession, newPriceCents: 4500 }}
+        busy={false}
+        onComplete={noop}
+        onConfirmPrice={noop}
+      />,
+    );
+
+    expect(screen.getByText(/The new price is \$45\.00\./)).toBeTruthy();
   });
 
   it.each([

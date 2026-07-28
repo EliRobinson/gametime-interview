@@ -1,7 +1,6 @@
 import type { CheckoutSession } from '@repo/api-contracts';
 import { CHECKOUT_ERROR_CODE } from '@repo/api-contracts';
 
-import { CHECKOUT_COPY } from './copy';
 import type { CheckoutView } from './types';
 
 export type { CheckoutView } from './types';
@@ -27,10 +26,13 @@ export function viewFromErrorCode(code: string | null, session?: CheckoutSession
     case CHECKOUT_ERROR_CODE.PRECONDITION_FAILED:
       return session
         ? { kind: 'price_changed', session }
-        : { kind: 'error', message: CHECKOUT_COPY.priceChangedNoSession };
+        : {
+            kind: 'error',
+            message: 'The price for this listing changed. Reopen your checkout.',
+          };
     case CHECKOUT_ERROR_CODE.CONFLICT:
       return { kind: 'claimed_elsewhere' };
     default:
-      return { kind: 'error', message: CHECKOUT_COPY.genericError };
+      return { kind: 'error', message: 'Something went wrong on our end. Please try again.' };
   }
 }

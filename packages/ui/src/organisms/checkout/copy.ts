@@ -41,6 +41,4 @@ export const CHECKOUT_COPY = {
     body: 'Your seats are still held. You can try the payment again.',
     reasonPrefix: 'Reason:',
   },
-  priceChangedNoSession: 'The price for this listing changed. Reopen your checkout.',
-  genericError: 'Something went wrong on our end. Please try again.',
 } as const;

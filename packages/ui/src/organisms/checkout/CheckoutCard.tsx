@@ -1,6 +1,7 @@
 import type { CheckoutSession } from '@repo/api-contracts';
 import { formatCurrency } from '@repo/utils';
 
+import { Banner } from '../../atoms/Banner';
 import { Button } from '../../atoms/Button';
 import { Notice } from '../../atoms/Notice';
 import { Spinner } from '../../atoms/Spinner';
@@ -28,12 +29,13 @@ export function CheckoutCard({ view, busy, onComplete, onConfirmPrice }: Checkou
 
     case 'price_changed':
       return (
-        <Panel
-          title={CHECKOUT_COPY.priceChanged.title}
-          body={`${CHECKOUT_COPY.priceChanged.bodyPrefix} ${formatCurrency(
-            view.session.acknowledgedPrice,
-          )}. ${CHECKOUT_COPY.priceChanged.bodySuffix}`}
-        >
+        <ActionStack>
+          <Banner testID="price-changed-banner">
+            <Text variant="title">{CHECKOUT_COPY.priceChanged.title}</Text>
+            <Text variant="body">
+              {formatPriceChangedBody(view.session.acknowledgedPrice, view.newPriceCents)}
+            </Text>
+          </Banner>
           <Button
             onPress={() => onConfirmPrice(view.session)}
             testID="confirm-price-button"
@@ -42,7 +44,7 @@ export function CheckoutCard({ view, busy, onComplete, onConfirmPrice }: Checkou
           >
             {busy ? CHECKOUT_COPY.checkingPrice : CHECKOUT_COPY.confirmNewPrice}
           </Button>
-        </Panel>
+        </ActionStack>
       );
 
     case 'expired':
@@ -109,11 +111,7 @@ function renderSession(
       <Text variant="eyebrow">{CHECKOUT_COPY.resumedEyebrow}</Text>
       <Text variant="title">{CHECKOUT_COPY.finishTitle}</Text>
       <PriceRow amountCents={session.acknowledgedPrice} testID="acknowledged-price" />
-      {notice ? (
-        <Notice testID="price-notice">
-          <Text variant="body">{notice}</Text>
-        </Notice>
-      ) : null}
+      {notice ? <Notice testID="price-notice">{notice}</Notice> : null}
       <Button
         onPress={() => onComplete(session)}
         testID="complete-button"
@@ -124,4 +122,13 @@ function renderSession(
       </Button>
     </ActionStack>
   );
+}
+
+function formatPriceChangedBody(acknowledgedPrice: number, newPriceCents?: number): string {
+  const acknowledged = `${CHECKOUT_COPY.priceChanged.bodyPrefix} ${formatCurrency(
+    acknowledgedPrice,
+  )}.`;
+  const newPrice =
+    newPriceCents !== undefined ? ` The new price is ${formatCurrency(newPriceCents)}.` : '';
+  return `${acknowledged}${newPrice} ${CHECKOUT_COPY.priceChanged.bodySuffix}`;
 }

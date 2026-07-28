@@ -10,6 +10,8 @@ const nextConfig = {
     '@repo/tokens',
     '@repo/utils',
     '@repo/api-contracts',
+    'nativewind',
+    'react-native-css-interop',
     'react-native-web',
   ],
   webpack: (config) => {

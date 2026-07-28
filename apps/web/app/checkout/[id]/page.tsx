@@ -17,9 +17,9 @@ const page = {
     lineHeight: 1.5,
   },
   dl: { display: 'grid', gridTemplateColumns: 'auto 1fr', gap: '0.25rem 1rem', margin: 0 },
-  dt: { color: '#5a5a60' },
+  dt: { color: 'var(--color-muted)' },
   dd: { margin: 0, textAlign: 'right' },
-  id: { color: '#5a5a60', fontSize: '0.875rem', margin: 0 },
+  id: { color: 'var(--color-muted)', fontSize: '0.875rem', margin: 0 },
 } as const;
 
 export default async function CheckoutPage({ params }: { params: { id: string } }) {

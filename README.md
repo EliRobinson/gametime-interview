@@ -3,6 +3,159 @@
 One codebase that ships to iOS, Android, and web, backed by a fully
 type-safe API. Use this as a GitHub template for new projects.
 
+---
+
+# Checkout Continuity
+
+A fan starts checking out on one surface and finishes on another — start on
+mobile web, get the link, finish in the native app. The checkout session is
+owned by the server; each surface is just a view onto it.
+
+## What was built
+
+| Piece                                 | Where                                                 |
+| ------------------------------------- | ----------------------------------------------------- |
+| Session schemas (the shared contract) | `packages/api-contracts/src/schemas/checkout.ts`      |
+| `CheckoutService` state machine       | `apps/api/src/domain/checkout-service.ts`             |
+| In-memory session store (CAS)         | `apps/api/src/domain/session-store.ts`                |
+| Stubbed inventory + payment           | `apps/api/src/domain/{inventory,payment}-provider.ts` |
+| Structured event log                  | `apps/api/src/domain/events.ts`                       |
+| tRPC surface                          | `apps/api/src/routers/checkout.ts`                    |
+| Web checkout (SSR)                    | `apps/web/app/checkout/[id]/`                         |
+| Mobile checkout (deep link)           | `apps/mobile-web/app/checkout/[id].tsx`               |
+
+The domain vocabulary — Checkout Session, the session states, price
+reconfirmation, and the deliberate split between inventory hold and session
+expiration — is written up in [`CONTEXT.md`](./CONTEXT.md). That file is the
+reference for _why_ the state machine is shaped this way; this section covers
+how it's built and how to run it.
+
+## Running it
+
+```bash
+pnpm install
+cp apps/api/.env.example apps/api/.env   # DATABASE_URL only matters for the users demo route
+
+pnpm dev:api          # Fastify + tRPC on :4000
+pnpm dev:web          # Next.js checkout on :3001
+pnpm dev:mobile-web   # Expo — press i for the iOS Simulator
+```
+
+Create a session, then open it on either surface:
+
+```bash
+# Create one (listing_1 is seeded at $42.00 in apps/api/src/context.ts)
+curl -X POST localhost:4000/trpc/checkout.create \
+  -H 'content-type: application/json' -d '{"listingId":"listing_1"}'
+
+# Same session, two surfaces:
+open http://localhost:3001/checkout/<sessionId>
+xcrun simctl openurl booted "mobileweb://checkout/<sessionId>"
+```
+
+Note the request body is the raw input object — this tRPC server has no
+superjson transformer wired up, so there is no `{"json": ...}` envelope.
+
+## The state model
+
+`created → active → pending_payment → completed`, with `expired` and `failed`
+as the off-ramps. `failed` is retryable (it transitions back through
+`pending_payment`); `completed` and `expired` are terminal.
+
+The server is the only writer. A surface never computes state locally — it
+posts an intent (`resume`, `confirmPrice`, `complete`) and renders whatever
+session comes back. That's what makes two surfaces agree without either
+knowing the other exists.
+
+## How the hard parts are handled
+
+**Resuming across surfaces.** The session ID is an opaque nanoid and is the
+_only_ credential — no fan auth, matching the "send it to a friend" case in the
+prompt. Possession of the ID is capability, not identity. Both surfaces call the
+same `checkout.resume` and report which surface they are (`'web' | 'mobile'`),
+which lands in the event log.
+
+**Stale inventory.** Session expiration and the inventory hold are two clocks
+owned by two services, and they're deliberately not collapsed. `resumeSession`
+checks the hold _live_ rather than trusting its own `expiresAt` — a session can
+be perfectly unexpired and still reference inventory that's gone. Those surface
+to the fan as different states ("your session expired" vs. "this listing is no
+longer available") and as different wire codes.
+
+**Price changes.** The session tracks `acknowledgedPrice` separately from the
+listing's live price. A mismatch blocks completion with `PRECONDITION_FAILED`
+until the fan explicitly confirms via `checkout.confirmPrice`. Silent repricing
+is treated as a domain violation, not a UI detail — the fan always agrees to the
+number they're charged.
+
+**Duplicate completion.** This is the real hazard: two devices holding the same
+resumable session, both hitting "buy." `completeSession` claims the session with
+an atomic compare-and-swap to `pending_payment` _before_ charging. The swap
+reads and writes with no `await` in between, so two same-tick callers cannot
+both win — the loser gets `CONFLICT` and the fan is told the order is being
+completed on another device. There is no time-window heuristic and no
+best-effort check. `apps/api/src/domain/checkout-service.test.ts` races two
+completions and asserts exactly one wins.
+
+**Instrumentation.** Every continuity-relevant transition emits a structured
+event (`session_created`, `session_resumed`, `price_reconfirmed`,
+`session_expired`, `session_completed`, `session_failed`) carrying the surface,
+so a cross-surface handoff is reconstructable from the log.
+
+### Error codes
+
+| Domain error              | tRPC code               | Fan-facing meaning                        |
+| ------------------------- | ----------------------- | ----------------------------------------- |
+| `SessionNotFoundError`    | `NOT_FOUND`             | Bad or unknown link                       |
+| `SessionExpiredError`     | `TIMEOUT`               | Your checkout session expired             |
+| `ListingUnavailableError` | `UNPROCESSABLE_CONTENT` | Listing no longer available               |
+| `PriceChangedError`       | `PRECONDITION_FAILED`   | Price changed — confirm to continue       |
+| `ConflictError`           | `CONFLICT`              | Already being completed on another device |
+
+tRPC has no HTTP-410 `GONE` in its code table, so expiration and unavailability
+take `TIMEOUT` and `UNPROCESSABLE_CONTENT` — the point is that they stay
+_distinguishable_, and that `CONFLICT` means only one thing.
+
+## What appears before hydration (web)
+
+`/checkout/:id` is a React Server Component. It fetches the session server-side
+and renders the listing, status, and price into the HTML document — so the fan
+opening a resumed link sees real state in the first paint, with no spinner and
+no loading flash, before any client JS runs. The client component takes over
+afterward for the interactive parts (confirm price, complete) starting from that
+same server-rendered session, so hydration is seamless rather than a re-fetch.
+
+## Tradeoffs
+
+- **In-memory session store, no Prisma model.** The prompt allows it, and it
+  keeps reviewer setup at zero. It also makes the CAS honest at this scale — one
+  process, one map. Against a real DB this becomes a conditional
+  `UPDATE ... WHERE status = $expected`, which is the same idea with the same
+  guarantee; the `SessionStore` interface is the seam for that swap.
+- **Deterministic fakes over random failures.** `FakePaymentProvider.forceOutcome`
+  and `FakeInventoryProvider.setPrice` let tests and a live demo drive any state
+  transition on command. Randomized stubs would make the interesting paths
+  unreproducible.
+- **No auth.** Deliberate, per the domain model — the session ID is the
+  capability. Real deployment would still want the ID unguessable (it is) and
+  rate-limited (it isn't).
+- **Resume is pull-based.** A surface learns about changes when it acts, not
+  when they happen.
+
+## With more time
+
+- Push instead of pull — SSE or a websocket so a price change or a completion on
+  the other device updates this one live, rather than being discovered on the
+  next action.
+- Prisma-backed session store with a real conditional update, plus a background
+  sweeper to expire sessions rather than expiring lazily on read.
+- Playwright E2E driving an actual cross-surface handoff — create on web,
+  complete on mobile — which is the one thing the unit tests can only simulate.
+- Real idempotency keys on the payment call, so a retry after a network timeout
+  can't double-charge even if the process dies mid-flight.
+
+---
+
 ## Stack
 
 | Layer          | Choice                                                |

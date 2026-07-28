@@ -45,10 +45,12 @@ function trpcErrorCode(error: unknown): string | null {
 }
 
 function viewFromSession(session: CheckoutSession, notice: string | null = null): CheckoutView {
-  // `resume` reports a released inventory hold as an expired session, so a
-  // session that comes back expired is presented as expiry; genuine listing
-  // unavailability only surfaces as UNPROCESSABLE_CONTENT on a write.
-  if (session.status === 'expired') return { kind: 'expired' };
+  // An expired session carries *which* clock ran out: the session's own, or the
+  // inventory hold underneath it. They mean different things to the fan, so a
+  // released hold reads as unavailability even when resume reports it as expiry.
+  if (session.status === 'expired') {
+    return session.expiryReason === 'hold_released' ? { kind: 'unavailable' } : { kind: 'expired' };
+  }
   return { kind: 'session', session, notice };
 }
 

@@ -95,6 +95,21 @@ describe('CheckoutScreen', () => {
     expect(screen.queryByText('Checkout session expired')).toBeNull();
   });
 
+  it('reads unavailability off a resumed session whose inventory hold was released', async () => {
+    // The session's own clock is fine; the hold underneath it went away. Resume
+    // reports that as `expired`, and only `expiryReason` says which clock ran out.
+    resume.mockResolvedValue({
+      ...activeSession,
+      status: 'expired',
+      expiryReason: 'hold_released',
+    });
+
+    render(<CheckoutScreen />);
+
+    await waitFor(() => expect(screen.getByText('Listing no longer available')).toBeTruthy());
+    expect(screen.queryByText('Checkout session expired')).toBeNull();
+  });
+
   it('shows a confirmation state for a completed session', async () => {
     resume.mockResolvedValue({ ...activeSession, status: 'completed' });
 

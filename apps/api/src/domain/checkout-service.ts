@@ -1,4 +1,4 @@
-import type { CheckoutSession } from '@repo/api-contracts';
+import type { CheckoutSession, SessionExpiryReason } from '@repo/api-contracts';
 import { nanoid } from 'nanoid';
 
 import type { EventLog, Surface } from './events';
@@ -67,7 +67,7 @@ export class CheckoutService {
     let session = await this.expireIfNeeded(this.mustGet(id));
     if (!this.isTerminal(session)) {
       const holdStatus = await this.inventory.getHoldStatus(session.listingId);
-      if (!holdStatus.held) session = this.expireNow(session);
+      if (!holdStatus.held) session = this.expireNow(session, 'hold_released');
     }
     this.events.emit({ name: 'session_resumed', sessionId: id, toSurface: surface });
     return session;
@@ -103,7 +103,7 @@ export class CheckoutService {
 
     const holdStatus = await this.inventory.getHoldStatus(session.listingId);
     if (!holdStatus.held) {
-      this.expireNow(session);
+      this.expireNow(session, 'hold_released');
       throw new ListingUnavailableError(id);
     }
     if (holdStatus.currentPrice !== session.acknowledgedPrice) {
@@ -151,13 +151,14 @@ export class CheckoutService {
   private async expireIfNeeded(session: CheckoutSession): Promise<CheckoutSession> {
     if (this.isTerminal(session)) return session;
     if (new Date(session.expiresAt).getTime() >= Date.now()) return session;
-    return this.expireNow(session);
+    return this.expireNow(session, 'session_lapsed');
   }
 
-  private expireNow(session: CheckoutSession): CheckoutSession {
+  private expireNow(session: CheckoutSession, reason: SessionExpiryReason): CheckoutSession {
     const expired = this.store.casUpdate(session.id, session.status, (s) => ({
       ...s,
       status: 'expired',
+      expiryReason: reason,
     }));
     if (expired) this.events.emit({ name: 'session_expired', sessionId: session.id });
     return expired ?? session;

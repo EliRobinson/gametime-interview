@@ -125,6 +125,32 @@ describe('CheckoutService', () => {
     expect((rejected as PromiseRejectedResult).reason).toBeInstanceOf(ConflictError);
   });
 
+  it('distinguishes a lapsed session clock from a released inventory hold', async () => {
+    jest.useFakeTimers().setSystemTime(new Date('2026-01-01T00:00:00.000Z'));
+    try {
+      const { service, inventory } = setup();
+
+      const lapsing = await service.createSession('listing_1');
+      const held = await service.createSession('listing_1');
+
+      // One session outlives its own clock while the hold is still good...
+      jest.setSystemTime(new Date('2026-01-01T00:11:00.000Z'));
+      const lapsed = await service.resumeSession(lapsing.id, 'web');
+
+      // ...the other is still within its clock but the hold went away.
+      jest.setSystemTime(new Date('2026-01-01T00:00:00.000Z'));
+      inventory.releaseListing('listing_1');
+      const dropped = await service.resumeSession(held.id, 'web');
+
+      expect(lapsed.status).toBe('expired');
+      expect(lapsed.expiryReason).toBe('session_lapsed');
+      expect(dropped.status).toBe('expired');
+      expect(dropped.expiryReason).toBe('hold_released');
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
   it('refuses to charge a session another surface has already claimed', async () => {
     const { store, inventory, events } = setup();
     const charged: string[] = [];

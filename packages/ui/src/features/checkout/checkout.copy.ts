@@ -1,0 +1,47 @@
+export const CHECKOUT_COPY = {
+  loading: 'Finding your checkout',
+  loadingSubtitle: "So you don't have to.",
+  resumedEyebrow: 'Resumed checkout',
+  finishTitle: 'Finish your checkout',
+  completePurchase: 'CONTINUE',
+  completing: 'CONTINUING…',
+  confirmNewPrice: 'CONFIRM NEW PRICE',
+  checkingPrice: 'CHECKING…',
+  retry: 'TRY AGAIN',
+  retrying: 'RETRYING…',
+  priceUpdatedPrefix: 'Price updated to',
+  priceChanged: {
+    title: 'Price changed',
+    bodyPrefix:
+      "The seller's price for this listing moved while your checkout was open. You last agreed to",
+    bodySuffix: 'Nothing has been charged.',
+    newPricePrefix: 'The new price is',
+  },
+  expired: {
+    title: 'Checkout session expired',
+    body: 'Your hold on these tickets lapsed, so this checkout is no longer available. Nothing was charged — start a new checkout to try again.',
+  },
+  unavailable: {
+    title: 'Listing no longer available',
+    body: 'These tickets were claimed before your purchase went through. Nothing was charged — browse similar seats instead.',
+  },
+  claimedElsewhere: {
+    title: 'Finishing on another device',
+    body: 'This order is already being completed on another device. Nothing is wrong — check that device, or come back in a moment to see the confirmation.',
+  },
+  notFound: {
+    title: 'Checkout not found',
+    body: "We couldn't find this checkout. The link may be out of date — start a new checkout from the listing.",
+  },
+  errorTitle: 'Checkout unavailable',
+  completed: {
+    title: 'Order complete',
+    bodyPrefix: "You're all set —",
+    bodySuffix: 'charged. Your tickets are on their way to your account.',
+  },
+  failed: {
+    title: "Payment didn't go through",
+    body: 'Your seats are still held. You can try the payment again.',
+    reasonPrefix: 'Reason:',
+  },
+} as const;

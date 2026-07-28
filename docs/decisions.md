@@ -157,6 +157,15 @@ both places.
 traffic, sharing `packages/ui`/`packages/api-contracts` the same way both surfaces already
 do in the prototype.
 
+**Update (shared UI landed):** the duplication risk called out above is now mitigated for the
+checkout flow. `@repo/tokens` is the single source for colors/spacing/typography (Tailwind
+preset + CSS vars); `@repo/ui` holds atoms (`Text`, `Button`, `Banner`, `Notice`, `Spinner`),
+molecules (`Panel`, `PriceRow`, `ActionStack`), and the `CheckoutCard` organism with
+`viewFromSession`/`viewFromErrorCode` mappers. `apps/web` adopted react-native-web +
+NativeWind alongside Next.js SSR so it renders the same `@repo/ui` components as
+`apps/mobile-web` — no parallel DOM checkout implementation. Storybook and Solito were
+deliberately left out of scope.
+
 ## 9. No live cross-surface E2E test
 
 **What we did:** Unit/integration tests on the state machine, the tRPC router, and each

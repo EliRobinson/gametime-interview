@@ -57,7 +57,7 @@ describe('CheckoutClient', () => {
       />,
     );
     expect(screen.getByText(/price changed/i)).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /confirm at new price/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /confirm new price/i })).toBeInTheDocument();
   });
 
   it('tells a lapsed session apart from a released hold', () => {
@@ -80,15 +80,15 @@ describe('CheckoutClient', () => {
     expect(screen.queryByText(/checkout session expired/i)).not.toBeInTheDocument();
   });
 
-  it('disables completion until an unacknowledged price change is confirmed', () => {
+  it('hides completion until an unacknowledged price change is confirmed', () => {
     render(<CheckoutClient initialSession={baseSession} priceChangedTo={5000} />);
-    expect(screen.getByRole('button', { name: /complete purchase/i })).toBeDisabled();
+    expect(screen.queryByRole('button', { name: /continue/i })).not.toBeInTheDocument();
   });
 
   it('shows a confirmation for a completed session and offers no complete button', () => {
     render(<CheckoutClient initialSession={{ ...baseSession, status: 'completed' }} />);
     expect(screen.getByText(/you're all set/i)).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /complete purchase/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /continue/i })).not.toBeInTheDocument();
   });
 
   it('shows the failure reason and a retry button for a failed session', () => {
@@ -105,11 +105,11 @@ describe('CheckoutClient', () => {
     trpc.checkout.complete.mutate.mockRejectedValue(trpcError('PRECONDITION_FAILED'));
     render(<CheckoutClient initialSession={baseSession} />);
 
-    fireEvent.click(screen.getByRole('button', { name: /complete purchase/i }));
+    fireEvent.click(screen.getByRole('button', { name: /continue/i }));
 
     await waitFor(() => expect(screen.getByText(/price changed/i)).toBeInTheDocument());
-    expect(screen.getByRole('button', { name: /complete purchase/i })).toBeDisabled();
-    expect(screen.getByRole('button', { name: /confirm at new price/i })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /continue/i })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /confirm new price/i })).toBeInTheDocument();
   });
 
   it('re-enables completion at the new price only after the fan acknowledges it', async () => {
@@ -119,12 +119,10 @@ describe('CheckoutClient', () => {
     });
     render(<CheckoutClient initialSession={baseSession} priceChangedTo={5000} />);
 
-    fireEvent.click(screen.getByRole('button', { name: /confirm at new price/i }));
+    fireEvent.click(screen.getByRole('button', { name: /confirm new price/i }));
 
-    await waitFor(() =>
-      expect(screen.getByRole('button', { name: /complete purchase/i })).toBeEnabled(),
-    );
-    expect(screen.getByText(/\$50\.00/)).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByRole('button', { name: /continue/i })).toBeEnabled());
+    expect(screen.getByTestId('acknowledged-price')).toHaveTextContent('$50.00');
     expect(trpc.checkout.confirmPrice.mutate).toHaveBeenCalledWith({
       sessionId: 'sess_1',
       surface: 'web',
@@ -135,16 +133,16 @@ describe('CheckoutClient', () => {
     trpc.checkout.complete.mutate.mockRejectedValue(trpcError('CONFLICT'));
     render(<CheckoutClient initialSession={baseSession} />);
 
-    fireEvent.click(screen.getByRole('button', { name: /complete purchase/i }));
+    fireEvent.click(screen.getByRole('button', { name: /continue/i }));
 
-    await waitFor(() => expect(screen.getByText(/another device/i)).toBeInTheDocument());
+    await waitFor(() => expect(screen.getAllByText(/another device/i).length).toBeGreaterThan(0));
   });
 
   it('reports a lapsed session when complete rejects with TIMEOUT', async () => {
     trpc.checkout.complete.mutate.mockRejectedValue(trpcError('TIMEOUT'));
     render(<CheckoutClient initialSession={baseSession} />);
 
-    fireEvent.click(screen.getByRole('button', { name: /complete purchase/i }));
+    fireEvent.click(screen.getByRole('button', { name: /continue/i }));
 
     await waitFor(() => expect(screen.getByText(/checkout session expired/i)).toBeInTheDocument());
   });
@@ -153,7 +151,7 @@ describe('CheckoutClient', () => {
     trpc.checkout.complete.mutate.mockRejectedValue(trpcError('UNPROCESSABLE_CONTENT'));
     render(<CheckoutClient initialSession={baseSession} />);
 
-    fireEvent.click(screen.getByRole('button', { name: /complete purchase/i }));
+    fireEvent.click(screen.getByRole('button', { name: /continue/i }));
 
     await waitFor(() =>
       expect(screen.getByText(/listing no longer available/i)).toBeInTheDocument(),

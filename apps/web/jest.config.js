@@ -25,6 +25,10 @@ module.exports = {
   },
   moduleNameMapper: {
     '^#web/(.*)$': '<rootDir>/src/$1',
+    '^react-native$': 'react-native-web',
   },
+  transformIgnorePatterns: [
+    'node_modules/(?!\\.pnpm|((jest-)?react-native|@react-native(-community)?)|react-native-web|nativewind|react-native-css-interop|@repo/ui)',
+  ],
   testPathIgnorePatterns: ['/node_modules/', '/.next/'],
 };

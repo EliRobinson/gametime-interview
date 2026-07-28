@@ -5,5 +5,5 @@ module.exports = {
   // runtime (e.g. to follow `userInterfaceStyle: "automatic"`), which
   // NativeWind's default 'media' (CSS-only) dark mode doesn't support.
   darkMode: 'class',
-  presets: [require('nativewind/preset'), require('@repo/config/tailwind')],
+  presets: [require('nativewind/preset'), require('@repo/tokens/preset')],
 };

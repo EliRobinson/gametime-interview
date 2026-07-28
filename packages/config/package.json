@@ -5,7 +5,6 @@
   "main": "index.js",
   "exports": {
     "./eslint": "./eslint/index.mjs",
-    "./tailwind": "./tailwind/index.js",
     "./typescript/base": "./typescript/base.json"
   },
   "dependencies": {

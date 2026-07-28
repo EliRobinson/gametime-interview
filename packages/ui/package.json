@@ -13,6 +13,11 @@
     "react": "*",
     "react-native": "*"
   },
+  "dependencies": {
+    "@repo/api-contracts": "workspace:*",
+    "@repo/tokens": "workspace:*",
+    "@repo/utils": "workspace:*"
+  },
   "devDependencies": {
     "@repo/config": "workspace:*",
     "@testing-library/react-native": "^12.7.0",

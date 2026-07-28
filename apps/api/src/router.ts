@@ -1,6 +1,7 @@
 import { createUserInput, userSchema } from '@repo/api-contracts';
 import { z } from 'zod';
 
+import { checkoutRouter } from './routers/checkout';
 import { publicProcedure, router } from './trpc';
 
 export const appRouter = router({
@@ -14,6 +15,8 @@ export const appRouter = router({
       .output(userSchema)
       .mutation(({ ctx, input }) => ctx.users.create(input)),
   }),
+
+  checkout: checkoutRouter,
 });
 
 export type AppRouter = typeof appRouter;

@@ -38,4 +38,10 @@ describe('checkout schemas', () => {
     expect(sessionIdInput.safeParse({}).success).toBe(false);
     expect(sessionIdInput.safeParse({ sessionId: 'sess_abc123' }).success).toBe(true);
   });
+
+  it('sessionIdInput defaults surface to web and accepts mobile, rejects unknown', () => {
+    expect(sessionIdInput.parse({ sessionId: 'x' }).surface).toBe('web');
+    expect(sessionIdInput.safeParse({ sessionId: 'x', surface: 'mobile' }).success).toBe(true);
+    expect(sessionIdInput.safeParse({ sessionId: 'x', surface: 'kiosk' }).success).toBe(false);
+  });
 });

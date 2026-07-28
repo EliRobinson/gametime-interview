@@ -25,5 +25,11 @@ export type CheckoutSession = z.infer<typeof checkoutSessionSchema>;
 export const createSessionInput = z.object({ listingId: z.string().min(1) });
 export type CreateSessionInput = z.infer<typeof createSessionInput>;
 
-export const sessionIdInput = z.object({ sessionId: z.string().min(1) });
+export const checkoutSurface = z.enum(['web', 'mobile']);
+export type CheckoutSurface = z.infer<typeof checkoutSurface>;
+
+export const sessionIdInput = z.object({
+  sessionId: z.string().min(1),
+  surface: checkoutSurface.default('web'),
+});
 export type SessionIdInput = z.infer<typeof sessionIdInput>;

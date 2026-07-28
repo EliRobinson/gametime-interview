@@ -15,6 +15,7 @@
   },
   "dependencies": {
     "@repo/api-contracts": "workspace:*",
+    "@repo/utils": "workspace:*",
     "@trpc/client": "^11.0.0",
     "api": "workspace:*",
     "next": "^14.2.0",

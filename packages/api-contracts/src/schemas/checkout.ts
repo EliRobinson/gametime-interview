@@ -43,3 +43,16 @@ export const sessionIdInput = z.object({
   surface: checkoutSurface.default('web'),
 });
 export type SessionIdInput = z.infer<typeof sessionIdInput>;
+
+// The tRPC wire codes this checkout flow actually throws, named after the
+// domain failure each one stands in for. Both clients switch on these to
+// decide which recovery UI to show, so the API and the clients share this set
+// instead of each hardcoding the same strings.
+export const CHECKOUT_ERROR_CODE = {
+  NOT_FOUND: 'NOT_FOUND',
+  TIMEOUT: 'TIMEOUT',
+  UNPROCESSABLE_CONTENT: 'UNPROCESSABLE_CONTENT',
+  PRECONDITION_FAILED: 'PRECONDITION_FAILED',
+  CONFLICT: 'CONFLICT',
+} as const;
+export type CheckoutErrorCode = (typeof CHECKOUT_ERROR_CODE)[keyof typeof CHECKOUT_ERROR_CODE];

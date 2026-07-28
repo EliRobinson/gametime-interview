@@ -1,9 +1,9 @@
 'use client';
 
-import type { CheckoutSession } from '@repo/api-contracts';
+import { CHECKOUT_ERROR_CODE, type CheckoutSession } from '@repo/api-contracts';
+import { formatCurrency } from '@repo/utils';
 import { useState } from 'react';
 
-import { formatCents } from '#web/format';
 import { trpc } from '#web/trpc-client';
 
 export type CheckoutClientProps = {
@@ -99,22 +99,22 @@ export function CheckoutClient({ initialSession, priceChangedTo }: CheckoutClien
 
   function applyError(error: unknown) {
     switch (errorCode(error)) {
-      case 'PRECONDITION_FAILED':
+      case CHECKOUT_ERROR_CODE.PRECONDITION_FAILED:
         // The fan agreed to a price that no longer holds. Never re-price them
         // silently: block completion until they acknowledge the new total.
         setPriceChanged(true);
         setNotice(null);
         return;
-      case 'CONFLICT':
+      case CHECKOUT_ERROR_CODE.CONFLICT:
         setNotice('This order is already being completed on another device.');
         return;
-      case 'TIMEOUT':
+      case CHECKOUT_ERROR_CODE.TIMEOUT:
         setEnded('session_lapsed');
         return;
-      case 'UNPROCESSABLE_CONTENT':
+      case CHECKOUT_ERROR_CODE.UNPROCESSABLE_CONTENT:
         setEnded('hold_released');
         return;
-      case 'NOT_FOUND':
+      case CHECKOUT_ERROR_CODE.NOT_FOUND:
         setEnded('not_found');
         return;
       default:
@@ -167,7 +167,7 @@ export function CheckoutClient({ initialSession, priceChangedTo }: CheckoutClien
       <section style={styles.card}>
         <h2>You&apos;re all set</h2>
         <p>
-          Order confirmed for {session.listingId} at {formatCents(session.acknowledgedPrice)}.
+          Order confirmed for {session.listingId} at {formatCurrency(session.acknowledgedPrice)}.
         </p>
       </section>
     );
@@ -190,7 +190,7 @@ export function CheckoutClient({ initialSession, priceChangedTo }: CheckoutClien
     <section style={styles.card}>
       <div style={styles.totalRow}>
         <span>Total</span>
-        <strong style={styles.total}>{formatCents(session.acknowledgedPrice)}</strong>
+        <strong style={styles.total}>{formatCurrency(session.acknowledgedPrice)}</strong>
       </div>
 
       {priceChanged ? (
@@ -198,7 +198,7 @@ export function CheckoutClient({ initialSession, priceChangedTo }: CheckoutClien
           <p>
             {newPrice === null
               ? 'The price changed since you started this checkout.'
-              : `The price changed to ${formatCents(newPrice)} since you started this checkout.`}
+              : `The price changed to ${formatCurrency(newPrice)} since you started this checkout.`}
           </p>
           <p>Nothing is charged until you confirm the new total and complete the order.</p>
           <button type="button" style={styles.button} onClick={confirmNewPrice} disabled={busy}>

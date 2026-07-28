@@ -9,6 +9,10 @@ export const CHECKOUT_COPY = {
   checkingPrice: 'CHECKING…',
   retry: 'TRY AGAIN',
   retrying: 'RETRYING…',
+  shareTickets: 'Share tickets',
+  shareTicketsHint: 'Copy a link to resume this checkout on web or in the app.',
+  copyWebLink: 'Copy web link',
+  copyMobileLink: 'Copy app link',
   priceUpdatedPrefix: 'Price updated to',
   priceChanged: {
     title: 'Price changed',

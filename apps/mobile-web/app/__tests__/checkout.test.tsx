@@ -207,4 +207,18 @@ describe('CheckoutScreen', () => {
     await waitFor(() => expect(screen.getByText(/missing a checkout id/i)).toBeTruthy());
     expect(resume).not.toHaveBeenCalled();
   });
+
+  it('shows Share tickets with web and mobile resume URLs', async () => {
+    resume.mockResolvedValue(activeSession);
+
+    render(<CheckoutScreen />);
+
+    await waitFor(() => expect(screen.getByTestId('share-tickets-button')).toBeTruthy());
+    expect(screen.getByTestId('share-web-url').props.children).toContain(
+      'http://localhost:3001/checkout/sess_1',
+    );
+    expect(screen.getByTestId('share-mobile-url').props.children).toContain(
+      'mobileweb://checkout/sess_1',
+    );
+  });
 });

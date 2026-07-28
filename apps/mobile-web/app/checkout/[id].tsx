@@ -1,11 +1,18 @@
 import type { CheckoutSession } from '@repo/api-contracts';
 import { colors, spacePx } from '@repo/tokens';
 import type { CheckoutView } from '@repo/ui';
-import { CheckoutCard, priceUpdatedNotice, viewFromErrorCode, viewFromSession } from '@repo/ui';
+import {
+  buildCheckoutShareUrls,
+  CheckoutCard,
+  isShareableSession,
+  priceUpdatedNotice,
+  viewFromErrorCode,
+  viewFromSession,
+} from '@repo/ui';
 import { trpcErrorCode } from '@repo/utils';
 import { useLocalSearchParams } from 'expo-router';
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { SafeAreaView, View } from 'react-native';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { SafeAreaView, Share, View } from 'react-native';
 
 import { trpc } from '@/lib/trpc-client';
 
@@ -13,6 +20,8 @@ import { trpc } from '@/lib/trpc-client';
 // event log can show the web → mobile handoff rather than a second anonymous
 // session.
 const SURFACE = 'mobile' as const;
+
+const WEB_ORIGIN = process.env.EXPO_PUBLIC_WEB_ORIGIN ?? 'http://localhost:3001';
 
 export default function CheckoutScreen() {
   const params = useLocalSearchParams();
@@ -58,6 +67,14 @@ export default function CheckoutScreen() {
       });
   }, [isCurrent, sessionId]);
 
+  const shareSession =
+    'session' in view && view.session && isShareableSession(view.session) ? view.session : null;
+
+  const shareUrls = useMemo(() => {
+    if (!shareSession) return null;
+    return buildCheckoutShareUrls(shareSession.id, WEB_ORIGIN);
+  }, [shareSession]);
+
   const completePurchase = useCallback(
     async (session: CheckoutSession) => {
       if (!sessionId || busy) return;
@@ -96,6 +113,13 @@ export default function CheckoutScreen() {
     [busy, isCurrent, sessionId],
   );
 
+  const onShare = useCallback(async (payload: { webUrl: string; mobileUrl: string }) => {
+    await Share.share({
+      message: `Resume checkout:\n${payload.webUrl}\nApp: ${payload.mobileUrl}`,
+      url: payload.webUrl,
+    });
+  }, []);
+
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.canvas }}>
       <View
@@ -112,6 +136,9 @@ export default function CheckoutScreen() {
           busy={busy}
           onComplete={completePurchase}
           onConfirmPrice={confirmNewPrice}
+          shareWebUrl={shareUrls?.shareWebUrl}
+          shareMobileUrl={shareUrls?.shareMobileUrl}
+          onShare={onShare}
         />
       </View>
     </SafeAreaView>

@@ -16,13 +16,14 @@ const sampleUser: User = {
 };
 
 function createCaller(users: UserStore) {
+  const inventory = new FakeInventoryProvider();
   const checkout = new CheckoutService(
     new InMemorySessionStore(),
-    new FakeInventoryProvider(),
+    inventory,
     new FakePaymentProvider(),
     new EventLog(),
   );
-  const ctx: Context = { userId: null, users, checkout };
+  const ctx: Context = { userId: null, users, checkout, inventory };
   return appRouter.createCaller(ctx);
 }
 
@@ -84,9 +85,34 @@ function createCheckoutCaller() {
     userId: null,
     users: { list: jest.fn(), create: jest.fn() },
     checkout,
+    inventory,
   };
   return { caller: appRouter.createCaller(ctx), inventory, payment, events };
 }
+
+describe('appRouter.listings', () => {
+  it('returns seeded prices and marks held listings unavailable', async () => {
+    const { caller, inventory } = createCheckoutCaller();
+    inventory.seedListing('listing_2', 12500);
+    await inventory.placeHold('listing_1');
+
+    await expect(caller.listings.list()).resolves.toEqual({
+      listings: [
+        { listingId: 'listing_1', priceCents: 4200, available: false },
+        { listingId: 'listing_2', priceCents: 12500, available: true },
+      ],
+    });
+  });
+
+  it('surfaces create failure when a listing is already held', async () => {
+    const { caller } = createCheckoutCaller();
+    await caller.checkout.create({ listingId: 'listing_1' });
+
+    await expect(caller.checkout.create({ listingId: 'listing_1' })).rejects.toMatchObject({
+      code: 'UNPROCESSABLE_CONTENT',
+    });
+  });
+});
 
 describe('appRouter.checkout', () => {
   it('creates, resumes, and completes a session end to end', async () => {

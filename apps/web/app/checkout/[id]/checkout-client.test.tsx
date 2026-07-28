@@ -157,4 +157,20 @@ describe('CheckoutClient', () => {
       expect(screen.getByText(/listing no longer available/i)).toBeInTheDocument(),
     );
   });
+
+  it('exposes web and mobile share URLs for an active session', () => {
+    render(<CheckoutClient initialSession={baseSession} />);
+
+    expect(screen.getByRole('button', { name: /share tickets/i })).toBeInTheDocument();
+    expect(screen.getByTestId('share-web-url')).toHaveTextContent(
+      'http://localhost:3001/checkout/sess_1',
+    );
+    expect(screen.getByTestId('share-mobile-url')).toHaveTextContent('mobileweb://checkout/sess_1');
+  });
+
+  it('hides share for a completed session', () => {
+    render(<CheckoutClient initialSession={{ ...baseSession, status: 'completed' }} />);
+
+    expect(screen.queryByRole('button', { name: /share tickets/i })).not.toBeInTheDocument();
+  });
 });

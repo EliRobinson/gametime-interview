@@ -5,8 +5,8 @@ import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
 
 export const metadata: Metadata = {
-  title: 'Checkout · Gametime',
-  description: 'Resume your checkout on any device.',
+  title: 'Tickets · Gametime',
+  description: 'Select seats and resume checkout on any device.',
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {

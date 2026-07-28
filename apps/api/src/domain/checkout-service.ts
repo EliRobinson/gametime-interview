@@ -3,6 +3,7 @@ import { nanoid } from 'nanoid';
 
 import type { EventLog } from './events';
 import type { InventoryProvider } from './inventory-provider';
+import { ListingAlreadyHeldError } from './inventory-provider';
 import type { PaymentProvider } from './payment-provider';
 import type { SessionStore } from './session-store';
 
@@ -44,7 +45,20 @@ export class CheckoutService {
   ) {}
 
   async createSession(listingId: string): Promise<CheckoutSession> {
-    const { price } = await this.inventory.placeHold(listingId);
+    let price: number;
+    try {
+      ({ price } = await this.inventory.placeHold(listingId));
+    } catch (error) {
+      // Hold exclusivity and unknown ids both surface as "listing unavailable"
+      // so the landing Continue path can stay on the selection screen.
+      if (
+        error instanceof ListingAlreadyHeldError ||
+        (error instanceof Error && /Unknown listing/.test(error.message))
+      ) {
+        throw new ListingUnavailableError(listingId);
+      }
+      throw error;
+    }
     const now = new Date();
     const session: CheckoutSession = {
       id: nanoid(),

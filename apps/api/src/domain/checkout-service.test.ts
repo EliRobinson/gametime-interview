@@ -129,9 +129,10 @@ describe('CheckoutService', () => {
     jest.useFakeTimers().setSystemTime(new Date('2026-01-01T00:00:00.000Z'));
     try {
       const { service, inventory } = setup();
+      inventory.seedListing('listing_2', 5000);
 
       const lapsing = await service.createSession('listing_1');
-      const held = await service.createSession('listing_1');
+      const held = await service.createSession('listing_2');
 
       // One session outlives its own clock while the hold is still good...
       jest.setSystemTime(new Date('2026-01-01T00:11:00.000Z'));
@@ -139,7 +140,7 @@ describe('CheckoutService', () => {
 
       // ...the other is still within its clock but the hold went away.
       jest.setSystemTime(new Date('2026-01-01T00:00:00.000Z'));
-      inventory.releaseListing('listing_1');
+      inventory.releaseListing('listing_2');
       const dropped = await service.resumeSession(held.id, 'web');
 
       expect(lapsed.status).toBe('expired');
@@ -149,6 +150,15 @@ describe('CheckoutService', () => {
     } finally {
       jest.useRealTimers();
     }
+  });
+
+  it('refuses to create a second session for an already-held listing', async () => {
+    const { service } = setup();
+    await service.createSession('listing_1');
+
+    await expect(service.createSession('listing_1')).rejects.toBeInstanceOf(
+      ListingUnavailableError,
+    );
   });
 
   it('refuses to charge a session another surface has already claimed', async () => {

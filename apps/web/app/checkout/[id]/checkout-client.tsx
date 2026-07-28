@@ -2,9 +2,16 @@
 
 import type { CheckoutSession } from '@repo/api-contracts';
 import type { CheckoutView } from '@repo/ui';
-import { CheckoutCard, priceUpdatedNotice, viewFromErrorCode, viewFromSession } from '@repo/ui';
+import {
+  buildCheckoutShareUrls,
+  CheckoutCard,
+  isShareableSession,
+  priceUpdatedNotice,
+  viewFromErrorCode,
+  viewFromSession,
+} from '@repo/ui';
 import { trpcErrorCode } from '@repo/utils';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 
 import { trpc } from '#web/trpc-client';
 
@@ -28,9 +35,24 @@ function initialView(session: CheckoutSession, priceChangedTo?: number): Checkou
   return base;
 }
 
+function webOrigin(): string {
+  // Prefer an explicit public origin so share links stay stable in local
+  // multi-port setups (API :4000, web :3001) and in tests under jsdom.
+  return process.env.NEXT_PUBLIC_WEB_ORIGIN ?? 'http://localhost:3001';
+}
+
 export function CheckoutClient({ initialSession, priceChangedTo }: CheckoutClientProps) {
   const [view, setView] = useState<CheckoutView>(() => initialView(initialSession, priceChangedTo));
   const [busy, setBusy] = useState(false);
+  const [shareFeedback, setShareFeedback] = useState<string | null>(null);
+
+  const shareSession =
+    'session' in view && view.session && isShareableSession(view.session) ? view.session : null;
+
+  const shareUrls = useMemo(() => {
+    if (!shareSession) return null;
+    return buildCheckoutShareUrls(shareSession.id, webOrigin());
+  }, [shareSession]);
 
   async function completeOrder(session: CheckoutSession) {
     if (busy) return;
@@ -61,12 +83,32 @@ export function CheckoutClient({ initialSession, priceChangedTo }: CheckoutClien
     }
   }
 
+  async function onShare(payload: { webUrl: string; mobileUrl: string }) {
+    const body = `${payload.webUrl}\nApp: ${payload.mobileUrl}`;
+    try {
+      await navigator.clipboard.writeText(body);
+      setShareFeedback('Link copied');
+    } catch {
+      setShareFeedback(payload.webUrl);
+    }
+  }
+
   return (
-    <CheckoutCard
-      view={view}
-      busy={busy}
-      onComplete={completeOrder}
-      onConfirmPrice={confirmNewPrice}
-    />
+    <>
+      <CheckoutCard
+        view={view}
+        busy={busy}
+        onComplete={completeOrder}
+        onConfirmPrice={confirmNewPrice}
+        shareWebUrl={shareUrls?.shareWebUrl}
+        shareMobileUrl={shareUrls?.shareMobileUrl}
+        onShare={onShare}
+      />
+      {shareFeedback ? (
+        <p data-testid="share-feedback" style={{ marginTop: 12, fontSize: 14 }}>
+          {shareFeedback}
+        </p>
+      ) : null}
+    </>
   );
 }

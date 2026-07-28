@@ -4,6 +4,7 @@ import type { CreateFastifyContextOptions } from '@trpc/server/adapters/fastify'
 
 import { CheckoutService } from './domain/checkout-service';
 import { EventLog } from './domain/events';
+import type { InventoryProvider } from './domain/inventory-provider';
 import { FakeInventoryProvider } from './domain/inventory-provider';
 import { FakePaymentProvider } from './domain/payment-provider';
 import { InMemorySessionStore } from './domain/session-store';
@@ -19,6 +20,7 @@ export type Context = {
   userId: string | null;
   users: UserStore;
   checkout: CheckoutService;
+  inventory: InventoryProvider;
 };
 
 function createPrismaUserStore(client: PrismaClient): UserStore {
@@ -34,8 +36,20 @@ const checkoutStore = new InMemorySessionStore();
 const inventoryProvider = new FakeInventoryProvider();
 const paymentProvider = new FakePaymentProvider();
 const eventLog = new EventLog();
-// Demo seed data — replace with a real catalog lookup when wiring a real inventory system.
-inventoryProvider.seedListing('listing_1', 4200);
+
+// Demo catalog — presentation fixtures in @repo/ui key off these listing ids.
+const DEMO_LISTINGS: Array<{ listingId: string; priceCents: number }> = [
+  { listingId: 'listing_1', priceCents: 15400 },
+  { listingId: 'listing_2', priceCents: 12500 },
+  { listingId: 'listing_3', priceCents: 8900 },
+  { listingId: 'listing_4', priceCents: 21000 },
+  { listingId: 'listing_5', priceCents: 167600 },
+];
+
+for (const listing of DEMO_LISTINGS) {
+  inventoryProvider.seedListing(listing.listingId, listing.priceCents);
+}
+
 const checkoutService = new CheckoutService(
   checkoutStore,
   inventoryProvider,
@@ -49,5 +63,6 @@ export function createContext({ req: _req }: CreateFastifyContextOptions): Conte
     userId: null,
     users: createPrismaUserStore(prisma),
     checkout: checkoutService,
+    inventory: inventoryProvider,
   };
 }

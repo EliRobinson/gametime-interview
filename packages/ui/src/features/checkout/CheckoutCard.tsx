@@ -21,6 +21,10 @@ type CheckoutCardProps = {
   onConfirmPrice: (session: CheckoutSession) => void;
   /** Defaults to light (web). Pass `dark` for Gametime mobile canvas. */
   theme?: ThemeName;
+  /** When set, shows Share tickets for resumable sessions. */
+  shareWebUrl?: string;
+  shareMobileUrl?: string;
+  onShare?: (payload: { webUrl: string; mobileUrl: string }) => void;
 };
 
 export function CheckoutCard({
@@ -29,6 +33,9 @@ export function CheckoutCard({
   onComplete,
   onConfirmPrice,
   theme = 'light',
+  shareWebUrl,
+  shareMobileUrl,
+  onShare,
 }: CheckoutCardProps) {
   return (
     <ThemeProvider theme={theme}>
@@ -37,6 +44,9 @@ export function CheckoutCard({
         busy={busy}
         onComplete={onComplete}
         onConfirmPrice={onConfirmPrice}
+        shareWebUrl={shareWebUrl}
+        shareMobileUrl={shareMobileUrl}
+        onShare={onShare}
       />
     </ThemeProvider>
   );
@@ -47,8 +57,15 @@ function CheckoutCardBody({
   busy,
   onComplete,
   onConfirmPrice,
+  shareWebUrl,
+  shareMobileUrl,
+  onShare,
 }: Omit<CheckoutCardProps, 'theme'>) {
   const theme = useTheme();
+  const shareControls =
+    shareWebUrl && shareMobileUrl ? (
+      <ShareTickets webUrl={shareWebUrl} mobileUrl={shareMobileUrl} onShare={onShare} />
+    ) : null;
 
   switch (view.kind) {
     case 'loading':
@@ -69,6 +86,7 @@ function CheckoutCardBody({
           >
             {busy ? CHECKOUT_COPY.completing : CHECKOUT_COPY.completePurchase}
           </Button>
+          {shareControls}
         </View>
       );
 
@@ -96,6 +114,7 @@ function CheckoutCardBody({
           >
             {busy ? CHECKOUT_COPY.retrying : CHECKOUT_COPY.retry}
           </Button>
+          {shareControls}
         </Panel>
       );
 
@@ -116,6 +135,7 @@ function CheckoutCardBody({
           >
             {busy ? CHECKOUT_COPY.checkingPrice : CHECKOUT_COPY.confirmNewPrice}
           </Button>
+          {shareControls}
         </View>
       );
 
@@ -141,6 +161,37 @@ function CheckoutCardBody({
     case 'error':
       return <Panel title={CHECKOUT_COPY.errorTitle} body={view.message} />;
   }
+}
+
+function ShareTickets({
+  webUrl,
+  mobileUrl,
+  onShare,
+}: {
+  webUrl: string;
+  mobileUrl: string;
+  onShare?: (payload: { webUrl: string; mobileUrl: string }) => void;
+}) {
+  const theme = useTheme();
+
+  return (
+    <View style={{ gap: theme.space[2] }} testID="share-tickets">
+      <Text variant="muted">{CHECKOUT_COPY.shareTicketsHint}</Text>
+      <Button
+        testID="share-tickets-button"
+        variant="secondary"
+        onPress={() => onShare?.({ webUrl, mobileUrl })}
+      >
+        {CHECKOUT_COPY.shareTickets}
+      </Button>
+      <Text variant="muted" testID="share-web-url">
+        {webUrl}
+      </Text>
+      <Text variant="muted" testID="share-mobile-url">
+        {mobileUrl}
+      </Text>
+    </View>
+  );
 }
 
 function formatPriceChangedBody(acknowledgedPrice: number, newPriceCents?: number): string {

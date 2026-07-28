@@ -1,10 +1,5 @@
 import type { CheckoutSessionStatus } from '@repo/api-contracts';
 
-/** Prices cross the wire in cents. */
-export function formatCents(cents: number): string {
-  return `$${(cents / 100).toFixed(2)}`;
-}
-
 const STATUS_LABELS: Record<CheckoutSessionStatus, string> = {
   created: 'Created',
   active: 'Active',

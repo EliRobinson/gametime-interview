@@ -20,6 +20,7 @@
   "dependencies": {
     "@repo/api-contracts": "workspace:*",
     "@repo/ui": "workspace:*",
+    "@repo/utils": "workspace:*",
     "@trpc/client": "^11.0.0",
     "@trpc/react-query": "^11.0.0",
     "@tanstack/react-query": "^5.51.0",

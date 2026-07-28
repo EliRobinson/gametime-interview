@@ -1,5 +1,6 @@
 import { CHECKOUT_ERROR_CODE, type CheckoutSession } from '@repo/api-contracts';
 import { Button } from '@repo/ui';
+import { formatCurrency } from '@repo/utils';
 import { useLocalSearchParams } from 'expo-router';
 import type { ReactNode } from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -26,10 +27,6 @@ type CheckoutView =
   | { kind: 'claimed_elsewhere' }
   | { kind: 'not_found' }
   | { kind: 'error'; message: string };
-
-function formatPrice(cents: number): string {
-  return `$${(cents / 100).toFixed(2)}`;
-}
 
 /**
  * A `TRPCClientError` carries its wire code at `error.data.code`. Read it
@@ -147,7 +144,7 @@ export default function CheckoutScreen() {
         // decision back to them — it deliberately does not charge.
         if (isCurrent(token)) {
           setView(
-            viewFromSession(next, `Price updated to ${formatPrice(next.acknowledgedPrice)}.`),
+            viewFromSession(next, `Price updated to ${formatCurrency(next.acknowledgedPrice)}.`),
           );
         }
       } catch (error) {
@@ -195,7 +192,7 @@ function renderView({
       return (
         <Panel
           title="Price changed"
-          body={`The seller's price for this listing moved while your checkout was open. You last agreed to ${formatPrice(
+          body={`The seller's price for this listing moved while your checkout was open. You last agreed to ${formatCurrency(
             view.session.acknowledgedPrice,
           )}. Nothing has been charged.`}
         >
@@ -256,7 +253,7 @@ function renderSession(
     return (
       <Panel
         title="Order complete"
-        body={`You're all set — ${formatPrice(
+        body={`You're all set — ${formatCurrency(
           session.acknowledgedPrice,
         )} charged. Your tickets are on their way to your account.`}
       />
@@ -289,7 +286,7 @@ function renderSession(
       <View className="gap-1">
         <Text className="text-muted">Total</Text>
         <Text className="text-4xl font-bold text-gray-900" testID="acknowledged-price">
-          {formatPrice(session.acknowledgedPrice)}
+          {formatCurrency(session.acknowledgedPrice)}
         </Text>
       </View>
       {notice ? (

@@ -1,5 +1,9 @@
+import { colors } from '@repo/tokens';
 import type { ReactNode } from 'react';
-import { Pressable, Text as RNText } from 'react-native';
+import type { ViewStyle } from 'react-native';
+import { Pressable, StyleSheet,Text as RNText } from 'react-native';
+
+import { useAppearance } from '../appearance';
 
 type ButtonProps = {
   onPress: () => void;
@@ -9,25 +13,58 @@ type ButtonProps = {
   testID?: string;
 };
 
-// NativeWind's `className` works identically here whether this renders
-// on iOS, Android, or web (react-native-web) — one component, one style
-// language, three platforms.
+/**
+ * Primary CTA: black pill on light (web), mint pill on dark (mobile) — matches Gametime.
+ * Colors use token StyleSheet values so RN-web does not depend on dynamic NativeWind classes.
+ */
 export function Button({ onPress, children, variant = 'primary', disabled, testID }: ButtonProps) {
-  const base = 'rounded-lg px-4 py-3 items-center justify-center';
-  const styles = variant === 'primary' ? `${base} bg-primary` : `${base} bg-border`;
-  const textStyles =
-    variant === 'primary' ? 'text-surface font-semibold' : 'text-ink font-semibold';
-  const disabledClass = disabled ? ' opacity-50' : '';
+  const appearance = useAppearance();
+  const primary = appearance === 'dark';
+
+  const container: ViewStyle = {
+    ...styles.base,
+    backgroundColor:
+      variant === 'primary'
+        ? primary
+          ? colors.accent
+          : colors.cta
+        : primary
+          ? colors.surfaceDarkElevated
+          : colors.border,
+    opacity: disabled ? 0.5 : 1,
+  };
+
+  const labelColor = variant === 'primary' ? colors.onDark : primary ? colors.onDark : colors.text;
 
   return (
     <Pressable
       accessibilityRole="button"
-      className={`${styles}${disabledClass}`}
+      style={container}
       disabled={disabled}
       onPress={disabled ? undefined : onPress}
       testID={testID}
     >
-      <RNText className={textStyles}>{children}</RNText>
+      <RNText
+        style={{
+          color: labelColor,
+          fontWeight: '700',
+          textTransform: 'uppercase',
+          letterSpacing: 0.8,
+          fontSize: 15,
+        }}
+      >
+        {children}
+      </RNText>
     </Pressable>
   );
 }
+
+const styles = StyleSheet.create({
+  base: {
+    borderRadius: 9999,
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+});

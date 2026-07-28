@@ -10,6 +10,8 @@ export const space = {
 } as const;
 
 export const radius = {
-  md: '0.375rem',
-  lg: '0.5rem',
+  md: '0.5rem',
+  lg: '0.75rem',
+  /** Gametime CTAs are near-pill */
+  full: '9999px',
 } as const;

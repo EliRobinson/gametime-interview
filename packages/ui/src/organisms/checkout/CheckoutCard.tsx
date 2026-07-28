@@ -1,6 +1,8 @@
 import type { CheckoutSession } from '@repo/api-contracts';
 import { formatCurrency } from '@repo/utils';
 
+import type { Appearance } from '../../appearance';
+import { AppearanceProvider } from '../../appearance';
 import { Banner } from '../../atoms/Banner';
 import { Button } from '../../atoms/Button';
 import { Notice } from '../../atoms/Notice';
@@ -17,9 +19,35 @@ type CheckoutCardProps = {
   busy: boolean;
   onComplete: (session: CheckoutSession) => void;
   onConfirmPrice: (session: CheckoutSession) => void;
+  /** Defaults to light (web). Pass `dark` for Gametime mobile canvas. */
+  appearance?: Appearance;
 };
 
-export function CheckoutCard({ view, busy, onComplete, onConfirmPrice }: CheckoutCardProps) {
+export function CheckoutCard({
+  view,
+  busy,
+  onComplete,
+  onConfirmPrice,
+  appearance = 'light',
+}: CheckoutCardProps) {
+  return (
+    <AppearanceProvider appearance={appearance}>
+      {renderView({ view, busy, onComplete, onConfirmPrice })}
+    </AppearanceProvider>
+  );
+}
+
+function renderView({
+  view,
+  busy,
+  onComplete,
+  onConfirmPrice,
+}: {
+  view: CheckoutView;
+  busy: boolean;
+  onComplete: (session: CheckoutSession) => void;
+  onConfirmPrice: (session: CheckoutSession) => void;
+}) {
   switch (view.kind) {
     case 'loading':
       return <Spinner label={CHECKOUT_COPY.loading} />;

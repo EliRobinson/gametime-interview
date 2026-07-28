@@ -1,13 +1,13 @@
 export const CHECKOUT_COPY = {
-  loading: 'Loading your checkout…',
+  loading: 'Finding your checkout',
   resumedEyebrow: 'Resumed checkout',
   finishTitle: 'Finish your checkout',
-  completePurchase: 'Complete purchase',
-  completing: 'Completing…',
-  confirmNewPrice: 'Confirm at new price',
-  checkingPrice: 'Checking price…',
-  retry: 'Try again',
-  retrying: 'Retrying…',
+  completePurchase: 'CONTINUE',
+  completing: 'CONTINUING…',
+  confirmNewPrice: 'CONFIRM NEW PRICE',
+  checkingPrice: 'CHECKING…',
+  retry: 'TRY AGAIN',
+  retrying: 'RETRYING…',
   priceChanged: {
     title: 'Price changed',
     bodyPrefix:

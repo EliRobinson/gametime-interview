@@ -73,7 +73,7 @@ describe('checkout page server render', () => {
     const html = await renderPage('sess_ssr');
 
     expect(html).toMatch(/checkout session expired/i);
-    expect(html).not.toMatch(/complete purchase/i);
+    expect(html).not.toMatch(/CONTINUE/i);
   });
 
   it('renders a released inventory hold distinctly from a lapsed session', async () => {

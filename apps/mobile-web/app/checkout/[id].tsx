@@ -1,4 +1,5 @@
 import type { CheckoutSession } from '@repo/api-contracts';
+import { colors } from '@repo/tokens';
 import type { CheckoutView } from '@repo/ui';
 import { CheckoutCard, viewFromErrorCode, viewFromSession } from '@repo/ui';
 import { formatCurrency } from '@repo/utils';
@@ -111,9 +112,10 @@ export default function CheckoutScreen() {
   );
 
   return (
-    <SafeAreaView className="flex-1 bg-surface">
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.canvas }}>
       <View className="flex-1 justify-center gap-4 px-6">
         <CheckoutCard
+          appearance="dark"
           view={view}
           busy={busy}
           onComplete={completePurchase}

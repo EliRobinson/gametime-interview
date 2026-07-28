@@ -57,7 +57,7 @@ describe('CheckoutScreen', () => {
 
     render(<CheckoutScreen />);
 
-    expect(screen.getByText(/loading/i)).toBeTruthy();
+    expect(screen.getByText(/finding your checkout/i)).toBeTruthy();
     await waitFor(() => expect(screen.getByTestId('complete-button')).toBeTruthy());
     expect(screen.getByText('$42.00')).toBeTruthy();
   });

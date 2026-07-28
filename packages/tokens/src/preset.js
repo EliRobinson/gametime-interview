@@ -4,24 +4,41 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        primary: {
-          DEFAULT: '#4F46E5',
-          light: '#6366F1',
-          dark: '#4338CA',
+        accent: {
+          DEFAULT: '#00D692',
+          dark: '#00B87A',
+          muted: '#E8FFF5',
         },
-        surface: '#FFFFFF',
-        muted: '#6B7280',
-        border: '#D8D8DD',
-        banner: { DEFAULT: '#FDF6E3', border: '#B8860B' },
-        notice: { border: '#8A8A90' },
-        ink: '#111827',
+        primary: {
+          DEFAULT: '#00D692',
+          light: '#22E0A4',
+          dark: '#00B87A',
+        },
+        canvas: {
+          DEFAULT: '#000000',
+          light: '#F5F5F5',
+        },
+        surface: {
+          DEFAULT: '#FFFFFF',
+          dark: '#1C1C1E',
+          elevated: '#262626',
+        },
+        muted: '#8E8E93',
+        border: '#E5E5EA',
+        cta: '#000000',
+        banner: { DEFAULT: '#FFF8DC', border: '#E5C84A' },
+        urgency: { DEFAULT: '#F5D547', bg: '#FFF8DC', border: '#E5C84A' },
+        notice: { border: '#C7C7CC' },
+        ink: '#111111',
+        'on-dark': '#FFFFFF',
       },
       spacing: {
         18: '4.5rem',
       },
       borderRadius: {
-        md: '0.375rem',
-        lg: '0.5rem',
+        md: '0.5rem',
+        lg: '0.75rem',
+        full: '9999px',
       },
     },
   },

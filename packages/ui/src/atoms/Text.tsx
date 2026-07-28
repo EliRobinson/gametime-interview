@@ -1,15 +1,25 @@
+import { colors } from '@repo/tokens';
 import type { ReactNode } from 'react';
+import type { TextStyle } from 'react-native';
 import { Text as RNText } from 'react-native';
 
-const variantClass: Record<'title' | 'body' | 'muted' | 'total' | 'eyebrow', string> = {
-  title: 'text-2xl font-bold text-ink',
-  body: 'text-base text-ink',
-  muted: 'text-base text-muted',
-  total: 'text-4xl font-bold text-ink',
-  eyebrow: 'text-sm uppercase tracking-wide text-muted',
-};
+import { useAppearance } from '../appearance';
 
-export type TextVariant = keyof typeof variantClass;
+export type TextVariant = 'title' | 'body' | 'muted' | 'total' | 'eyebrow';
+
+const baseByVariant: Record<TextVariant, TextStyle> = {
+  title: { fontSize: 24, fontWeight: '700', lineHeight: 30 },
+  body: { fontSize: 16, fontWeight: '400', lineHeight: 22 },
+  muted: { fontSize: 16, fontWeight: '400', lineHeight: 22 },
+  total: { fontSize: 36, fontWeight: '700', lineHeight: 42 },
+  eyebrow: {
+    fontSize: 12,
+    fontWeight: '600',
+    lineHeight: 16,
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
+  },
+};
 
 export function Text({
   variant,
@@ -20,8 +30,12 @@ export function Text({
   children: ReactNode;
   testID?: string;
 }) {
+  const appearance = useAppearance();
+  const color =
+    variant === 'muted' ? colors.muted : appearance === 'dark' ? colors.onDark : colors.text;
+
   return (
-    <RNText className={variantClass[variant]} testID={testID}>
+    <RNText style={[baseByVariant[variant], { color }]} testID={testID}>
       {children}
     </RNText>
   );

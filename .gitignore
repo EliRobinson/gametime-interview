@@ -46,5 +46,5 @@ blob-report
 !.vscode/extensions.json
 .idea
 
-# Claude Code (local machine settings; safe to gitignore)
-.claude/settings.local.json
+# Claude Code (local machine state; safe to gitignore)
+.claude/

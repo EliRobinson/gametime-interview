@@ -6,6 +6,7 @@ import type { InventoryProvider } from './inventory-provider';
 import type { PaymentProvider } from './payment-provider';
 import type { SessionStore } from './session-store';
 
+// How long a checkout session stays resumable after creation: 10 minutes.
 const SESSION_TTL_MS = 10 * 60 * 1000;
 
 export class SessionNotFoundError extends Error {
@@ -82,8 +83,8 @@ export class CheckoutService {
     if (session.status === 'pending_payment') throw new ConflictError(id);
 
     const holdStatus = await this.inventory.getHoldStatus(session.listingId);
-    const updated = this.store.casUpdate(id, session.status, (s) => ({
-      ...s,
+    const updated = this.store.casUpdate(id, session.status, (session) => ({
+      ...session,
       acknowledgedPrice: holdStatus.currentPrice,
     }));
     if (!updated) throw new ConflictError(id);
@@ -113,24 +114,24 @@ export class CheckoutService {
     // Claim the session before charging. Whichever surface wins this swap owns
     // the payment attempt; the loser gets a ConflictError instead of a
     // duplicate order.
-    const claimed = this.store.casUpdate(id, session.status, (s) => ({
-      ...s,
+    const claimed = this.store.casUpdate(id, session.status, (session) => ({
+      ...session,
       status: 'pending_payment',
     }));
     if (!claimed) throw new ConflictError(id);
 
     const outcome = await this.payment.charge(id, holdStatus.currentPrice);
     if (outcome === 'succeeded') {
-      const completed = this.store.casUpdate(id, 'pending_payment', (s) => ({
-        ...s,
+      const completed = this.store.casUpdate(id, 'pending_payment', (session) => ({
+        ...session,
         status: 'completed',
       }));
       this.events.emit({ name: 'session_completed', sessionId: id, surface });
       return completed as CheckoutSession;
     }
 
-    const failed = this.store.casUpdate(id, 'pending_payment', (s) => ({
-      ...s,
+    const failed = this.store.casUpdate(id, 'pending_payment', (session) => ({
+      ...session,
       status: 'failed',
       failureReason: outcome,
     }));
@@ -155,8 +156,8 @@ export class CheckoutService {
   }
 
   private expireNow(session: CheckoutSession, reason: SessionExpiryReason): CheckoutSession {
-    const expired = this.store.casUpdate(session.id, session.status, (s) => ({
-      ...s,
+    const expired = this.store.casUpdate(session.id, session.status, (session) => ({
+      ...session,
       status: 'expired',
       expiryReason: reason,
     }));

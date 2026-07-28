@@ -3,8 +3,8 @@
 import type { CheckoutSession } from '@repo/api-contracts';
 import { useState } from 'react';
 
-import { formatCents } from '../../../src/format';
-import { trpc } from '../../../src/trpc-client';
+import { formatCents } from '#web/format';
+import { trpc } from '#web/trpc-client';
 
 export type CheckoutClientProps = {
   /**

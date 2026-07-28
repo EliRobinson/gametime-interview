@@ -1,7 +1,8 @@
 import type { CheckoutSession } from '@repo/api-contracts';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 
-import { trpc } from '../../src/lib/trpc-client';
+import { trpc } from '@/lib/trpc-client';
+
 import CheckoutScreen from '../checkout/[id]';
 
 jest.mock('../../src/lib/trpc-client', () => ({

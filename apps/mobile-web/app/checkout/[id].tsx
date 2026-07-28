@@ -5,7 +5,7 @@ import type { ReactNode } from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, SafeAreaView, Text, View } from 'react-native';
 
-import { trpc } from '../../src/lib/trpc-client';
+import { trpc } from '@/lib/trpc-client';
 
 // Every call from this screen reports where the fan actually is, so the API's
 // event log can show the web → mobile handoff rather than a second anonymous

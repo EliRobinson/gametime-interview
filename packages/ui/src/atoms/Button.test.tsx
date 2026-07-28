@@ -12,4 +12,16 @@ describe('Button', () => {
     fireEvent.press(screen.getByText('Continue'));
     expect(onPress).toHaveBeenCalledTimes(1);
   });
+
+  it('does not fire onPress when disabled', () => {
+    const onPress = jest.fn();
+    render(
+      <Button disabled onPress={onPress}>
+        Continue
+      </Button>,
+    );
+
+    fireEvent.press(screen.getByText('Continue'));
+    expect(onPress).not.toHaveBeenCalled();
+  });
 });

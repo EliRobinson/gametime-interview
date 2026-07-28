@@ -15,6 +15,7 @@
   },
   "devDependencies": {
     "@repo/config": "workspace:*",
+    "@repo/tokens": "workspace:*",
     "@testing-library/react-native": "^12.7.0",
     "@types/jest": "^29.5.12",
     "@types/react": "~18.2.79",

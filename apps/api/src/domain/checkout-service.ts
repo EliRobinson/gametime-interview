@@ -75,6 +75,12 @@ export class CheckoutService {
 
   async confirmPrice(id: string): Promise<CheckoutSession> {
     const session = await this.expireIfNeeded(this.mustGet(id));
+    if (session.status === 'expired') throw new SessionExpiredError(id);
+    // Nothing left to acknowledge on a finished order, and repricing one would
+    // rewrite what the fan already paid.
+    if (session.status === 'completed') return session;
+    if (session.status === 'pending_payment') throw new ConflictError(id);
+
     const holdStatus = await this.inventory.getHoldStatus(session.listingId);
     const updated = this.store.casUpdate(id, session.status, (s) => ({
       ...s,
@@ -89,6 +95,11 @@ export class CheckoutService {
     const session = await this.expireIfNeeded(this.mustGet(id));
     if (session.status === 'expired') throw new SessionExpiredError(id);
     if (session.status === 'completed') return session;
+    // Another surface has already claimed this session and is mid-charge. The
+    // CAS below cannot catch this on its own: expected and actual status would
+    // both be `pending_payment`, so the swap would succeed and charge a second
+    // time. This is the duplicate-order window, so reject it explicitly.
+    if (session.status === 'pending_payment') throw new ConflictError(id);
 
     const holdStatus = await this.inventory.getHoldStatus(session.listingId);
     if (!holdStatus.held) {

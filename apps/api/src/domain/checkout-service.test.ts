@@ -125,6 +125,48 @@ describe('CheckoutService', () => {
     expect((rejected as PromiseRejectedResult).reason).toBeInstanceOf(ConflictError);
   });
 
+  it('refuses to charge a session another surface has already claimed', async () => {
+    const { store, inventory, events } = setup();
+    const charged: string[] = [];
+    const payment = {
+      charge: async (sessionId: string) => {
+        charged.push(sessionId);
+        return 'succeeded' as const;
+      },
+    };
+    const service = new CheckoutService(store, inventory, payment, events);
+    const session = await service.createSession('listing_1');
+
+    // Device A claimed the session and then stalled mid-charge (slow provider,
+    // dropped connection, crashed process) — the session sits in pending_payment.
+    store.casUpdate(session.id, 'active', (s) => ({ ...s, status: 'pending_payment' }));
+
+    await expect(service.completeSession(session.id, 'mobile')).rejects.toThrow(ConflictError);
+    // The guard has to run before the provider call, not just leave the status alone.
+    expect(charged).toHaveLength(0);
+  });
+
+  it('refuses to reconfirm a price on an expired session', async () => {
+    const { service, store } = setup();
+    const session = await service.createSession('listing_1');
+    store.casUpdate(session.id, 'active', (s) => ({ ...s, status: 'expired' }));
+
+    await expect(service.confirmPrice(session.id)).rejects.toThrow(SessionExpiredError);
+  });
+
+  it('leaves a completed order untouched when confirmPrice is replayed', async () => {
+    const { service, inventory } = setup();
+    const session = await service.createSession('listing_1');
+    const completed = await service.completeSession(session.id, 'web');
+    expect(completed.status).toBe('completed');
+
+    inventory.setPrice('listing_1', 9900);
+    const replayed = await service.confirmPrice(session.id);
+
+    expect(replayed.status).toBe('completed');
+    expect(replayed.acknowledgedPrice).toBe(4200);
+  });
+
   it('throws SessionExpiredError when completing an already-expired session', async () => {
     jest.useFakeTimers().setSystemTime(new Date('2026-01-01T00:00:00.000Z'));
     const { service } = setup();

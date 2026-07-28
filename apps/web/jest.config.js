@@ -17,9 +17,14 @@ module.exports = {
           target: 'ES2020',
           lib: ['ESNext', 'DOM'],
           types: ['node', 'jest', '@testing-library/jest-dom'],
+          baseUrl: '.',
+          paths: { '#web/*': ['./src/*'] },
         },
       },
     ],
+  },
+  moduleNameMapper: {
+    '^#web/(.*)$': '<rootDir>/src/$1',
   },
   testPathIgnorePatterns: ['/node_modules/', '/.next/'],
 };

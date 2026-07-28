@@ -2,7 +2,7 @@ import { Button } from '@repo/ui';
 import { useState } from 'react';
 import { SafeAreaView, Text, View } from 'react-native';
 
-import { trpc } from '../src/lib/trpc';
+import { trpc } from '@/lib/trpc';
 
 export default function HomeScreen() {
   const [count, setCount] = useState(0);

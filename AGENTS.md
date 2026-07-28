@@ -14,3 +14,14 @@ sequence of files reads as a readable history without opening each one.
 
 Include in each export: date/time, a short summary of what was decided or built, and the key
 parts of the conversation (condense tool-call noise; keep decisions, tradeoffs, and rationale).
+
+## Variable naming
+
+Avoid single-letter identifiers for anything with meaningful scope (e.g. an `(s) =>` callback
+parameter standing in for a session). Spell out what the value is — `session`, not `s`.
+
+This isn't a blanket ban on short names: conventional, narrow-scope idioms (`i`/`j` for loop
+counters, `id`, well-established abbreviations) stay legible precisely because they're
+conventional, and forcing them into full words tends to hurt readability rather than help it.
+Use judgment — the bar is "would a reader have to guess what this holds," not "is it fewer than
+N characters."

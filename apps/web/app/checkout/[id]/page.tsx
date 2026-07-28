@@ -1,5 +1,6 @@
-import { statusLabel } from '../../../src/format';
-import { resumeSession } from '../../../src/resume-session';
+import { statusLabel } from '#web/format';
+import { resumeSession } from '#web/resume-session';
+
 import { CheckoutClient } from './checkout-client';
 
 // The session is resumed on every request with an uncached fetch, and the

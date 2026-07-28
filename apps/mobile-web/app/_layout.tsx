@@ -4,7 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Stack } from 'expo-router';
 import { useState } from 'react';
 
-import { getTrpcClientConfig, trpc } from '../src/lib/trpc';
+import { getTrpcClientConfig, trpc } from '@/lib/trpc';
 
 export default function RootLayout() {
   const [queryClient] = useState(() => new QueryClient());

@@ -2,7 +2,8 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, render, screen } from '@testing-library/react-native';
 import type { ReactElement } from 'react';
 
-import { getTrpcClientConfig, trpc } from '../../src/lib/trpc';
+import { getTrpcClientConfig, trpc } from '@/lib/trpc';
+
 import HomeScreen from '../index';
 
 // HomeScreen fires a real tRPC query on mount. There's no API running in

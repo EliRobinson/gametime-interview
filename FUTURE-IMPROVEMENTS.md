@@ -1,14 +1,12 @@
 # Future Improvements
 
-1. ~~Shared components between `apps/web` and `apps/mobile-web`~~ — partially addressed: price
-   formatting (`formatCents`/`formatPrice`) was deduped into `packages/utils`'s `formatCurrency`,
-   and the tRPC error-code handling both checkout screens reimplemented is now a shared
-   `CHECKOUT_ERROR_CODE` constant in `packages/api-contracts`. Literal component sharing is still
-   open: `apps/web` renders plain DOM/inline styles and `apps/mobile-web` renders React
-   Native/NativeWind, so `packages/ui`'s `Button` can't render on web as-is. Adopting
-   react-native-web in `apps/web` would close that gap but is a larger, riskier change (bundler
-   config, CSS/Tailwind vs NativeWind interop, SSR/hydration) that deserves its own scoped pass
-   rather than folding into a dedup task.
+1. ~~Shared components between `apps/web` and `apps/mobile-web`~~ — Done. Price formatting and
+   tRPC error-code handling were deduped earlier (`formatCurrency` in `packages/utils`,
+   `CHECKOUT_ERROR_CODE` in `packages/api-contracts`). Literal component sharing is now closed
+   via `@repo/tokens` (shared design tokens + Tailwind preset + CSS vars),
+   `@repo/ui` (atomic-design atoms/molecules plus `CheckoutCard`/`CheckoutView`), and
+   react-native-web in `apps/web` so both surfaces render the same RN primitives. Storybook for
+   isolated component docs and Solito for shared navigation remain out of scope for this POC.
 2. ~~Const enums for session/status states, shared between the mobile and web codebases instead
    of each maintaining its own copy.~~ Done — `CheckoutSessionStatus` was already shared via
    `packages/api-contracts`; the actual duplication (`Surface` type in

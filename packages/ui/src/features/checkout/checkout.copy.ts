@@ -1,5 +1,6 @@
 export const CHECKOUT_COPY = {
   loading: 'Finding your checkout',
+  loadingSubtitle: "So you don't have to.",
   resumedEyebrow: 'Resumed checkout',
   finishTitle: 'Finish your checkout',
   completePurchase: 'CONTINUE',
@@ -8,11 +9,13 @@ export const CHECKOUT_COPY = {
   checkingPrice: 'CHECKING…',
   retry: 'TRY AGAIN',
   retrying: 'RETRYING…',
+  priceUpdatedPrefix: 'Price updated to',
   priceChanged: {
     title: 'Price changed',
     bodyPrefix:
       "The seller's price for this listing moved while your checkout was open. You last agreed to",
     bodySuffix: 'Nothing has been charged.',
+    newPricePrefix: 'The new price is',
   },
   expired: {
     title: 'Checkout session expired',

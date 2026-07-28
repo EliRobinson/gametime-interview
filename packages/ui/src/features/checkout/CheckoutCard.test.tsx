@@ -1,8 +1,8 @@
 import type { CheckoutSession } from '@repo/api-contracts';
 import { fireEvent, render, screen } from '@testing-library/react-native';
 
+import { CHECKOUT_COPY } from './checkout.copy';
 import { CheckoutCard } from './CheckoutCard';
-import { CHECKOUT_COPY } from './copy';
 
 const activeSession: CheckoutSession = {
   id: 'sess_1',
@@ -18,10 +18,10 @@ const activeSession: CheckoutSession = {
 const noop = () => {};
 
 describe('CheckoutCard', () => {
-  it('shows price and complete purchase for active session', () => {
+  it('shows price and complete purchase for ready view', () => {
     render(
       <CheckoutCard
-        view={{ kind: 'session', session: activeSession, notice: null }}
+        view={{ kind: 'ready', session: activeSession, notice: null }}
         busy={false}
         onComplete={noop}
         onConfirmPrice={noop}
@@ -70,7 +70,7 @@ describe('CheckoutCard', () => {
     expect(screen.getByText(title)).toBeTruthy();
   });
 
-  it('shows retry button for failed session', () => {
+  it('shows retry button for failed view', () => {
     const failedSession: CheckoutSession = {
       ...activeSession,
       status: 'failed',
@@ -79,7 +79,7 @@ describe('CheckoutCard', () => {
 
     render(
       <CheckoutCard
-        view={{ kind: 'session', session: failedSession, notice: null }}
+        view={{ kind: 'failed', session: failedSession }}
         busy={false}
         onComplete={noop}
         onConfirmPrice={noop}
@@ -90,7 +90,7 @@ describe('CheckoutCard', () => {
     expect(screen.getByText(CHECKOUT_COPY.retry)).toBeTruthy();
   });
 
-  it('shows spinner label for loading', () => {
+  it('shows spinner label and subtitle for loading', () => {
     render(
       <CheckoutCard
         view={{ kind: 'loading' }}
@@ -101,13 +101,14 @@ describe('CheckoutCard', () => {
     );
 
     expect(screen.getByText(CHECKOUT_COPY.loading)).toBeTruthy();
+    expect(screen.getByText(CHECKOUT_COPY.loadingSubtitle)).toBeTruthy();
   });
 
   it('shows price notice when provided', () => {
     render(
       <CheckoutCard
         view={{
-          kind: 'session',
+          kind: 'ready',
           session: activeSession,
           notice: 'Price updated to $42.00.',
         }}
@@ -126,7 +127,7 @@ describe('CheckoutCard', () => {
 
     render(
       <CheckoutCard
-        view={{ kind: 'session', session: activeSession, notice: null }}
+        view={{ kind: 'ready', session: activeSession, notice: null }}
         busy={false}
         onComplete={onComplete}
         onConfirmPrice={noop}

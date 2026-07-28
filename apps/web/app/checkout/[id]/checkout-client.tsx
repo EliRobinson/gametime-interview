@@ -2,8 +2,8 @@
 
 import type { CheckoutSession } from '@repo/api-contracts';
 import type { CheckoutView } from '@repo/ui';
-import { CheckoutCard, viewFromErrorCode, viewFromSession } from '@repo/ui';
-import { formatCurrency } from '@repo/utils';
+import { CheckoutCard, priceUpdatedNotice, viewFromErrorCode, viewFromSession } from '@repo/ui';
+import { trpcErrorCode } from '@repo/utils';
 import { useState } from 'react';
 
 import { trpc } from '#web/trpc-client';
@@ -19,18 +19,9 @@ export type CheckoutClientProps = {
   priceChangedTo?: number;
 };
 
-/** tRPC client errors carry the wire code on `.data.code`. */
-function trpcErrorCode(error: unknown): string | null {
-  if (typeof error !== 'object' || error === null) return null;
-  const data = (error as { data?: unknown }).data;
-  if (typeof data !== 'object' || data === null) return null;
-  const code = (data as { code?: unknown }).code;
-  return typeof code === 'string' ? code : null;
-}
-
 function initialView(session: CheckoutSession, priceChangedTo?: number): CheckoutView {
   const base = viewFromSession(session);
-  if (base.kind !== 'session') return base;
+  if (base.kind !== 'ready') return base;
   if (priceChangedTo !== undefined) {
     return { kind: 'price_changed', session, newPriceCents: priceChangedTo };
   }
@@ -62,7 +53,7 @@ export function CheckoutClient({ initialSession, priceChangedTo }: CheckoutClien
         sessionId: session.id,
         surface: 'web',
       });
-      setView(viewFromSession(next, `Price updated to ${formatCurrency(next.acknowledgedPrice)}.`));
+      setView(viewFromSession(next, priceUpdatedNotice(next.acknowledgedPrice)));
     } catch (error) {
       setView(viewFromErrorCode(trpcErrorCode(error), session));
     } finally {

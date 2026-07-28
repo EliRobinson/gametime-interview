@@ -1,46 +1,56 @@
-// Keep hex values in sync with colors.ts / space.ts / radius.ts (CJS cannot import TS cleanly).
-// Source: https://gametime.co/ logo (#19CE85) + main CSS (#010314, #141517, #1C1C20, #0C0C0D, #FBE217).
+'use strict';
+
+/* Tailwind presets must be CJS `require()`-able from app configs. */
+/* eslint-disable @typescript-eslint/no-require-imports */
+const { colors } = require('./palette.js');
+const { spaceCss, radiusCss } = require('./spacing.js');
+/* eslint-enable @typescript-eslint/no-require-imports */
+
 /** @type {import('tailwindcss').Config} */
 module.exports = {
   theme: {
     extend: {
       colors: {
         accent: {
-          DEFAULT: '#19CE85',
-          dark: '#15AF71',
-          light: '#52DAA3',
-          muted: '#DCF7EC',
+          DEFAULT: colors.accent,
+          dark: colors.accentDark,
+          light: colors.accentLight,
+          muted: colors.accentMuted,
         },
         primary: {
-          DEFAULT: '#19CE85',
-          light: '#52DAA3',
-          dark: '#15AF71',
+          DEFAULT: colors.primary,
+          light: colors.primaryLight,
+          dark: colors.primaryDark,
         },
         canvas: {
-          DEFAULT: '#0C0C0D',
-          light: '#F5F5F5',
+          DEFAULT: colors.canvas,
+          light: colors.canvasLight,
         },
         surface: {
-          DEFAULT: '#FFFFFF',
-          dark: '#1C1C20',
-          elevated: '#2A2A2E',
+          DEFAULT: colors.surface,
+          dark: colors.surfaceDark,
+          elevated: colors.surfaceDarkElevated,
         },
-        muted: '#5A5A5A',
-        border: '#DFE2E7',
-        cta: '#141517',
-        banner: { DEFAULT: '#FFF8DC', border: '#E5C84A' },
-        urgency: { DEFAULT: '#FBE217', bg: '#FFF8DC', border: '#FBE217' },
-        notice: { border: '#DFE2E7' },
-        ink: '#010314',
-        'on-dark': '#F9F9FA',
+        muted: colors.muted,
+        border: colors.border,
+        cta: colors.cta,
+        banner: { DEFAULT: colors.bannerBg, border: colors.bannerBorder },
+        urgency: {
+          DEFAULT: colors.urgency,
+          bg: colors.urgencyBg,
+          border: colors.urgencyBorder,
+        },
+        notice: { border: colors.noticeBorder },
+        ink: colors.text,
+        'on-dark': colors.onDark,
       },
       spacing: {
-        18: '4.5rem',
+        18: spaceCss[18],
       },
       borderRadius: {
-        md: '0.5rem',
-        lg: '0.75rem',
-        full: '9999px',
+        md: radiusCss.md,
+        lg: radiusCss.lg,
+        full: radiusCss.full,
       },
     },
   },

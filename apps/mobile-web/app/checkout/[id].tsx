@@ -1,8 +1,8 @@
 import type { CheckoutSession } from '@repo/api-contracts';
-import { colors } from '@repo/tokens';
+import { colors, spacePx } from '@repo/tokens';
 import type { CheckoutView } from '@repo/ui';
-import { CheckoutCard, viewFromErrorCode, viewFromSession } from '@repo/ui';
-import { formatCurrency } from '@repo/utils';
+import { CheckoutCard, priceUpdatedNotice, viewFromErrorCode, viewFromSession } from '@repo/ui';
+import { trpcErrorCode } from '@repo/utils';
 import { useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { SafeAreaView, View } from 'react-native';
@@ -13,19 +13,6 @@ import { trpc } from '@/lib/trpc-client';
 // event log can show the web → mobile handoff rather than a second anonymous
 // session.
 const SURFACE = 'mobile' as const;
-
-/**
- * A `TRPCClientError` carries its wire code at `error.data.code`. Read it
- * structurally instead of importing the class so this stays a pure function
- * over the response shape.
- */
-function trpcErrorCode(error: unknown): string | null {
-  if (typeof error !== 'object' || error === null) return null;
-  const data = (error as { data?: unknown }).data;
-  if (typeof data !== 'object' || data === null) return null;
-  const code = (data as { code?: unknown }).code;
-  return typeof code === 'string' ? code : null;
-}
 
 export default function CheckoutScreen() {
   const params = useLocalSearchParams();
@@ -98,9 +85,7 @@ export default function CheckoutScreen() {
         // Acknowledging shows the fan the new number and hands the purchase
         // decision back to them — it deliberately does not charge.
         if (isCurrent(token)) {
-          setView(
-            viewFromSession(next, `Price updated to ${formatCurrency(next.acknowledgedPrice)}.`),
-          );
+          setView(viewFromSession(next, priceUpdatedNotice(next.acknowledgedPrice)));
         }
       } catch (error) {
         if (isCurrent(token)) setView(viewFromErrorCode(trpcErrorCode(error), session));
@@ -113,9 +98,16 @@ export default function CheckoutScreen() {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.canvas }}>
-      <View className="flex-1 justify-center gap-4 px-6">
+      <View
+        style={{
+          flex: 1,
+          justifyContent: 'center',
+          gap: spacePx[4],
+          paddingHorizontal: spacePx[6],
+        }}
+      >
         <CheckoutCard
-          appearance="dark"
+          theme="dark"
           view={view}
           busy={busy}
           onComplete={completePurchase}

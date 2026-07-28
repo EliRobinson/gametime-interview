@@ -1,17 +1,40 @@
-export const space = {
-  1: '0.25rem',
-  2: '0.5rem',
-  3: '0.75rem',
-  4: '1rem',
-  5: '1.25rem',
-  6: '1.5rem',
-  8: '2rem',
-  18: '4.5rem',
-} as const;
+/* eslint-disable @typescript-eslint/no-require-imports -- CJS spacing shared with preset.js */
+// Shared with `preset.js` via CommonJS — keep values only in spacing.js.
+const { radiusCss, radiusPx, spaceCss, spacePx } = require('./spacing.js') as {
+  spacePx: {
+    readonly 1: 4;
+    readonly 2: 8;
+    readonly 3: 12;
+    readonly 4: 16;
+    readonly 5: 20;
+    readonly 6: 24;
+    readonly 8: 32;
+    readonly 18: 72;
+  };
+  radiusPx: {
+    readonly md: 8;
+    readonly lg: 12;
+    readonly full: 9999;
+  };
+  spaceCss: {
+    readonly 1: string;
+    readonly 2: string;
+    readonly 3: string;
+    readonly 4: string;
+    readonly 5: string;
+    readonly 6: string;
+    readonly 8: string;
+    readonly 18: string;
+  };
+  radiusCss: {
+    readonly md: string;
+    readonly lg: string;
+    readonly full: string;
+  };
+};
 
-export const radius = {
-  md: '0.5rem',
-  lg: '0.75rem',
-  /** Gametime CTAs are near-pill */
-  full: '9999px',
-} as const;
+export { radiusPx, spacePx };
+
+/** CSS rem strings derived from `spacePx` / `radiusPx`. */
+export const space = spaceCss;
+export const radius = radiusCss;

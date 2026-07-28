@@ -1,9 +1,8 @@
-import { colors } from '@repo/tokens';
 import type { ReactNode } from 'react';
-import type { ViewStyle } from 'react-native';
-import { Pressable, StyleSheet,Text as RNText } from 'react-native';
+import type { TextStyle, ViewStyle } from 'react-native';
+import { Pressable, Text as RNText } from 'react-native';
 
-import { useAppearance } from '../appearance';
+import { useTheme } from '../theme';
 
 type ButtonProps = {
   onPress: () => void;
@@ -14,27 +13,30 @@ type ButtonProps = {
 };
 
 /**
- * Primary CTA: black pill on light (web), mint pill on dark (mobile) — matches Gametime.
- * Colors use token StyleSheet values so RN-web does not depend on dynamic NativeWind classes.
+ * Primary CTA: black pill on light (web), mint pill on dark (mobile).
+ * Colors come from the active Theme — StyleSheet only, no NativeWind in `@repo/ui`.
  */
 export function Button({ onPress, children, variant = 'primary', disabled, testID }: ButtonProps) {
-  const appearance = useAppearance();
-  const primary = appearance === 'dark';
+  const theme = useTheme();
+  const isPrimary = variant === 'primary';
 
   const container: ViewStyle = {
-    ...styles.base,
-    backgroundColor:
-      variant === 'primary'
-        ? primary
-          ? colors.accent
-          : colors.cta
-        : primary
-          ? colors.surfaceDarkElevated
-          : colors.border,
+    borderRadius: theme.radius.full,
+    paddingHorizontal: theme.space[5],
+    paddingVertical: theme.space[4],
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: isPrimary ? theme.ctaBackground : theme.secondaryBackground,
     opacity: disabled ? 0.5 : 1,
   };
 
-  const labelColor = variant === 'primary' ? colors.onDark : primary ? colors.onDark : colors.text;
+  const label: TextStyle = {
+    color: isPrimary ? theme.ctaLabel : theme.secondaryLabel,
+    fontWeight: theme.fontWeight.bold,
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+    fontSize: theme.fontSize.md,
+  };
 
   return (
     <Pressable
@@ -44,27 +46,7 @@ export function Button({ onPress, children, variant = 'primary', disabled, testI
       onPress={disabled ? undefined : onPress}
       testID={testID}
     >
-      <RNText
-        style={{
-          color: labelColor,
-          fontWeight: '700',
-          textTransform: 'uppercase',
-          letterSpacing: 0.8,
-          fontSize: 15,
-        }}
-      >
-        {children}
-      </RNText>
+      <RNText style={label}>{children}</RNText>
     </Pressable>
   );
 }
-
-const styles = StyleSheet.create({
-  base: {
-    borderRadius: 9999,
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-});

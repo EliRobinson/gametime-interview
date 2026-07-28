@@ -25,3 +25,18 @@ counters, `id`, well-established abbreviations) stay legible precisely because t
 conventional, and forcing them into full words tends to hurt readability rather than help it.
 Use judgment — the bar is "would a reader have to guess what this holds," not "is it fewer than
 N characters."
+
+## Feature module file naming
+
+Colocate feature support files next to the UI they serve (e.g. `features/checkout/`), not under
+atomic-design folders. Name non-component files with a dotted role suffix so role is obvious in
+listings and imports:
+
+| Suffix        | Role                   | Example                   |
+| ------------- | ---------------------- | ------------------------- |
+| `.copy`       | User-facing strings    | `checkout.copy.ts`        |
+| `.view-model` | UI state types         | `checkout.view-model.ts`  |
+| `.util`       | Pure helpers / mappers | `mapCheckoutView.util.ts` |
+
+Components stay PascalCase (`CheckoutCard.tsx`). Tests sit beside the file they cover
+(`mapCheckoutView.util.test.ts`).

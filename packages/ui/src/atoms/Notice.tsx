@@ -1,24 +1,23 @@
-import { colors } from '@repo/tokens';
 import type { ReactNode } from 'react';
 import { View } from 'react-native';
 
-import { useAppearance } from '../appearance';
+import { useTheme } from '../theme';
 import { Text } from './Text';
 
 /** Soft status strip — mint tint on light; elevated surface on dark. */
 export function Notice({ children, testID }: { children: ReactNode; testID?: string }) {
-  const appearance = useAppearance();
+  const theme = useTheme();
 
   return (
     <View
       accessibilityLiveRegion="polite"
       style={{
-        borderRadius: 12,
+        borderRadius: theme.radius.lg,
         borderWidth: 1,
-        borderColor: colors.accent,
-        backgroundColor: appearance === 'dark' ? colors.surfaceDark : colors.accentMuted,
-        paddingHorizontal: 12,
-        paddingVertical: 12,
+        borderColor: theme.noticeBorder,
+        backgroundColor: theme.noticeBackground,
+        paddingHorizontal: theme.space[3],
+        paddingVertical: theme.space[3],
       }}
       testID={testID}
     >

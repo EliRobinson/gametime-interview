@@ -1,6 +1,6 @@
 import { CHECKOUT_ERROR_CODE } from '@repo/api-contracts';
 
-import { viewFromErrorCode, viewFromSession } from './view';
+import { priceUpdatedNotice, viewFromErrorCode, viewFromSession } from './mapCheckoutView.util';
 
 const active = {
   id: 'sess_1',
@@ -25,6 +25,21 @@ describe('viewFromSession', () => {
       session: { ...active, status: 'expired' as const, expiryReason: 'hold_released' as const },
       kind: 'unavailable',
     },
+    {
+      name: 'completed',
+      session: { ...active, status: 'completed' as const },
+      kind: 'completed',
+    },
+    {
+      name: 'failed',
+      session: { ...active, status: 'failed' as const, failureReason: 'card_declined' },
+      kind: 'failed',
+    },
+    {
+      name: 'active',
+      session: active,
+      kind: 'ready',
+    },
   ])('maps $name', ({ session, kind }) => {
     expect(viewFromSession(session).kind).toBe(kind);
   });
@@ -45,5 +60,11 @@ describe('viewFromErrorCode', () => {
       kind: 'price_changed',
       session: active,
     });
+  });
+});
+
+describe('priceUpdatedNotice', () => {
+  it('formats the confirmed-price notice', () => {
+    expect(priceUpdatedNotice(4200)).toBe('Price updated to $42.00.');
   });
 });

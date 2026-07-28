@@ -1,18 +1,18 @@
 import type { CheckoutSession } from '@repo/api-contracts';
 import { formatCurrency } from '@repo/utils';
+import { View } from 'react-native';
 
-import type { Appearance } from '../../appearance';
-import { AppearanceProvider } from '../../appearance';
 import { Banner } from '../../atoms/Banner';
 import { Button } from '../../atoms/Button';
 import { Notice } from '../../atoms/Notice';
 import { Spinner } from '../../atoms/Spinner';
 import { Text } from '../../atoms/Text';
-import { ActionStack } from '../../molecules/ActionStack';
 import { Panel } from '../../molecules/Panel';
 import { PriceRow } from '../../molecules/PriceRow';
-import { CHECKOUT_COPY } from './copy';
-import type { CheckoutView } from './types';
+import type { ThemeName } from '../../theme';
+import { ThemeProvider, useTheme } from '../../theme';
+import { CHECKOUT_COPY } from './checkout.copy';
+import type { CheckoutView } from './checkout.view-model';
 
 type CheckoutCardProps = {
   view: CheckoutView;
@@ -20,7 +20,7 @@ type CheckoutCardProps = {
   onComplete: (session: CheckoutSession) => void;
   onConfirmPrice: (session: CheckoutSession) => void;
   /** Defaults to light (web). Pass `dark` for Gametime mobile canvas. */
-  appearance?: Appearance;
+  theme?: ThemeName;
 };
 
 export function CheckoutCard({
@@ -28,36 +28,80 @@ export function CheckoutCard({
   busy,
   onComplete,
   onConfirmPrice,
-  appearance = 'light',
+  theme = 'light',
 }: CheckoutCardProps) {
   return (
-    <AppearanceProvider appearance={appearance}>
-      {renderView({ view, busy, onComplete, onConfirmPrice })}
-    </AppearanceProvider>
+    <ThemeProvider theme={theme}>
+      <CheckoutCardBody
+        view={view}
+        busy={busy}
+        onComplete={onComplete}
+        onConfirmPrice={onConfirmPrice}
+      />
+    </ThemeProvider>
   );
 }
 
-function renderView({
+function CheckoutCardBody({
   view,
   busy,
   onComplete,
   onConfirmPrice,
-}: {
-  view: CheckoutView;
-  busy: boolean;
-  onComplete: (session: CheckoutSession) => void;
-  onConfirmPrice: (session: CheckoutSession) => void;
-}) {
+}: Omit<CheckoutCardProps, 'theme'>) {
+  const theme = useTheme();
+
   switch (view.kind) {
     case 'loading':
-      return <Spinner label={CHECKOUT_COPY.loading} />;
+      return <Spinner label={CHECKOUT_COPY.loading} subtitle={CHECKOUT_COPY.loadingSubtitle} />;
 
-    case 'session':
-      return renderSession(view.session, view.notice, busy, onComplete);
+    case 'ready':
+      return (
+        <View style={{ gap: theme.space[4] }}>
+          <Text variant="eyebrow">{CHECKOUT_COPY.resumedEyebrow}</Text>
+          <Text variant="title">{CHECKOUT_COPY.finishTitle}</Text>
+          <PriceRow amountCents={view.session.acknowledgedPrice} testID="acknowledged-price" />
+          {view.notice ? <Notice testID="price-notice">{view.notice}</Notice> : null}
+          <Button
+            onPress={() => onComplete(view.session)}
+            testID="complete-button"
+            variant="primary"
+            disabled={busy}
+          >
+            {busy ? CHECKOUT_COPY.completing : CHECKOUT_COPY.completePurchase}
+          </Button>
+        </View>
+      );
+
+    case 'completed':
+      return (
+        <Panel
+          title={CHECKOUT_COPY.completed.title}
+          body={`${CHECKOUT_COPY.completed.bodyPrefix} ${formatCurrency(
+            view.session.acknowledgedPrice,
+          )} ${CHECKOUT_COPY.completed.bodySuffix}`}
+        />
+      );
+
+    case 'failed':
+      return (
+        <Panel title={CHECKOUT_COPY.failed.title} body={CHECKOUT_COPY.failed.body}>
+          <Text variant="muted" testID="failure-reason">
+            {CHECKOUT_COPY.failed.reasonPrefix} {view.session.failureReason ?? 'unknown'}
+          </Text>
+          <Button
+            onPress={() => onComplete(view.session)}
+            testID="retry-button"
+            variant="primary"
+            disabled={busy}
+          >
+            {busy ? CHECKOUT_COPY.retrying : CHECKOUT_COPY.retry}
+          </Button>
+        </Panel>
+      );
 
     case 'price_changed':
       return (
-        <ActionStack>
+        <View style={{ gap: theme.space[4] }}>
           <Banner testID="price-changed-banner">
             <Text variant="title">{CHECKOUT_COPY.priceChanged.title}</Text>
             <Text variant="body">
@@ -72,7 +116,7 @@ function renderView({
           >
             {busy ? CHECKOUT_COPY.checkingPrice : CHECKOUT_COPY.confirmNewPrice}
           </Button>
-        </ActionStack>
+        </View>
       );
 
     case 'expired':
@@ -99,64 +143,13 @@ function renderView({
   }
 }
 
-function renderSession(
-  session: CheckoutSession,
-  notice: string | null,
-  busy: boolean,
-  onComplete: (session: CheckoutSession) => void,
-) {
-  if (session.status === 'completed') {
-    return (
-      <Panel
-        title={CHECKOUT_COPY.completed.title}
-        body={`${CHECKOUT_COPY.completed.bodyPrefix} ${formatCurrency(
-          session.acknowledgedPrice,
-        )} ${CHECKOUT_COPY.completed.bodySuffix}`}
-      />
-    );
-  }
-
-  if (session.status === 'failed') {
-    return (
-      <Panel title={CHECKOUT_COPY.failed.title} body={CHECKOUT_COPY.failed.body}>
-        <Text variant="muted" testID="failure-reason">
-          {CHECKOUT_COPY.failed.reasonPrefix} {session.failureReason ?? 'unknown'}
-        </Text>
-        <Button
-          onPress={() => onComplete(session)}
-          testID="retry-button"
-          variant="primary"
-          disabled={busy}
-        >
-          {busy ? CHECKOUT_COPY.retrying : CHECKOUT_COPY.retry}
-        </Button>
-      </Panel>
-    );
-  }
-
-  return (
-    <ActionStack>
-      <Text variant="eyebrow">{CHECKOUT_COPY.resumedEyebrow}</Text>
-      <Text variant="title">{CHECKOUT_COPY.finishTitle}</Text>
-      <PriceRow amountCents={session.acknowledgedPrice} testID="acknowledged-price" />
-      {notice ? <Notice testID="price-notice">{notice}</Notice> : null}
-      <Button
-        onPress={() => onComplete(session)}
-        testID="complete-button"
-        variant="primary"
-        disabled={busy}
-      >
-        {busy ? CHECKOUT_COPY.completing : CHECKOUT_COPY.completePurchase}
-      </Button>
-    </ActionStack>
-  );
-}
-
 function formatPriceChangedBody(acknowledgedPrice: number, newPriceCents?: number): string {
   const acknowledged = `${CHECKOUT_COPY.priceChanged.bodyPrefix} ${formatCurrency(
     acknowledgedPrice,
   )}.`;
   const newPrice =
-    newPriceCents !== undefined ? ` The new price is ${formatCurrency(newPriceCents)}.` : '';
+    newPriceCents !== undefined
+      ? ` ${CHECKOUT_COPY.priceChanged.newPricePrefix} ${formatCurrency(newPriceCents)}.`
+      : '';
   return `${acknowledged}${newPrice} ${CHECKOUT_COPY.priceChanged.bodySuffix}`;
 }

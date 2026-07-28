@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import { View } from 'react-native';
 
 import { Text } from '../atoms/Text';
+import { useTheme } from '../theme';
 
 type PanelProps = {
   title: string;
@@ -10,8 +11,10 @@ type PanelProps = {
 };
 
 export function Panel({ title, body, children }: PanelProps) {
+  const theme = useTheme();
+
   return (
-    <View className="gap-3">
+    <View style={{ gap: theme.space[3] }}>
       <Text variant="title">{title}</Text>
       <Text variant="muted">{body}</Text>
       {children}

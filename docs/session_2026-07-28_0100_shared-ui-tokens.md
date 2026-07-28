@@ -24,16 +24,16 @@ react-native-web in Next.js. Storybook and Solito were explicitly scoped out.
 
 ## Implementation plan (Tasks 1–8)
 
-| Task | Scope                                              | Status                                        |
-| ---- | -------------------------------------------------- | --------------------------------------------- |
-| 1    | `@repo/tokens` package + preset + CSS vars         | Done                                          |
-| 2    | Atoms: Text, Button, Banner, Notice, Spinner       | Done                                          |
-| 3    | Molecules: Panel, PriceRow, ActionStack            | Done                                          |
-| 4    | CheckoutView mappers + CheckoutCard organism       | Done                                          |
-| 5    | Next.js RN-web + NativeWind + globals              | Done                                          |
-| 6    | Web checkout → shared CheckoutCard (SSR preserved) | Done                                          |
-| 7    | Mobile checkout → shared CheckoutCard              | Done                                          |
-| 8    | Docs cleanup + `mocks/` screenshots                | Docs done; PNG capture deferred to controller |
+| Task | Scope                                              | Status                               |
+| ---- | -------------------------------------------------- | ------------------------------------ |
+| 1    | `@repo/tokens` package + preset + CSS vars         | Done                                 |
+| 2    | Atoms: Text, Button, Banner, Notice, Spinner       | Done                                 |
+| 3    | Molecules: Panel, PriceRow, ActionStack            | Done                                 |
+| 4    | CheckoutView mappers + CheckoutCard organism       | Done                                 |
+| 5    | Next.js RN-web + NativeWind + globals              | Done                                 |
+| 6    | Web checkout → shared CheckoutCard (SSR preserved) | Done                                 |
+| 7    | Mobile checkout → shared CheckoutCard              | Done                                 |
+| 8    | Docs cleanup + `mocks/` screenshots                | Done (web + mobile PNGs in `mocks/`) |
 
 ## What landed (branch `shared-ui-tokens`)
 
@@ -55,6 +55,6 @@ pnpm --filter mobile-web test     # PASS
 
 ## Follow-ups
 
-- Capture `mocks/web-checkout-active.png` and `mocks/mobile-checkout-active.png` once dev
-  servers are running (Task 8 screenshots — left to controller).
+- Screenshots captured: `mocks/web-checkout-active.png`, `mocks/mobile-checkout-active.png`.
 - Cross-surface E2E (decision #9) still manual-only.
+- Optional polish: preset hex drift guard; populate `newPriceCents` from API on price-change.

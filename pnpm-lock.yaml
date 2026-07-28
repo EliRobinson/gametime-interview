@@ -294,9 +294,6 @@ importers:
       '@eslint/js':
         specifier: ^9.9.0
         version: 9.39.5
-      '@repo/tokens':
-        specifier: workspace:*
-        version: link:../tokens
       eslint-plugin-react-hooks:
         specifier: ^4.6.2
         version: 4.6.2(eslint@8.57.1)

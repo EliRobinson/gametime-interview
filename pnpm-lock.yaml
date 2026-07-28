@@ -297,6 +297,9 @@ importers:
 
   packages/ui:
     dependencies:
+      '@repo/api-contracts':
+        specifier: workspace:*
+        version: link:../api-contracts
       '@repo/utils':
         specifier: workspace:*
         version: link:../utils

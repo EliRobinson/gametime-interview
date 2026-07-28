@@ -36,7 +36,10 @@
     "*.{ts,tsx}": [
       "eslint --fix"
     ],
-    "*.{ts,tsx,md,json}": [
+    "*.{ts,tsx,json}": [
+      "prettier --write"
+    ],
+    "!(CLAUDE).md": [
       "prettier --write"
     ]
   },

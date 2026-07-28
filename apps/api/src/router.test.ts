@@ -124,6 +124,32 @@ describe('appRouter.checkout', () => {
     });
   });
 
+  it('distinguishes a released inventory hold from a duplicate completion', async () => {
+    const { caller, inventory } = createCheckoutCaller();
+    const created = await caller.checkout.create({ listingId: 'listing_1' });
+    inventory.releaseListing('listing_1');
+
+    await expect(caller.checkout.complete({ sessionId: created.id })).rejects.toMatchObject({
+      code: 'UNPROCESSABLE_CONTENT',
+    });
+  });
+
+  it('returns TIMEOUT when completing a session whose own clock has lapsed', async () => {
+    jest.useFakeTimers().setSystemTime(new Date('2026-01-01T00:00:00.000Z'));
+    try {
+      const { caller } = createCheckoutCaller();
+      const created = await caller.checkout.create({ listingId: 'listing_1' });
+
+      jest.setSystemTime(new Date('2026-01-01T00:11:00.000Z'));
+
+      await expect(caller.checkout.complete({ sessionId: created.id })).rejects.toMatchObject({
+        code: 'TIMEOUT',
+      });
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
   it('records the reporting surface on the event log', async () => {
     const { caller, events } = createCheckoutCaller();
     const created = await caller.checkout.create({ listingId: 'listing_1' });

@@ -10,9 +10,10 @@
     "dev": "turbo run dev",
     "dev:mobile-web": "turbo run dev --filter=mobile-web",
     "dev:api": "turbo run dev --filter=api",
+    "dev:web": "turbo run dev --filter=web",
     "build": "turbo run build",
     "lint": "turbo run lint",
-    "test": "turbo run test",
+    "test": "turbo run test --",
     "test:e2e:web": "turbo run test:e2e --filter=mobile-web",
     "typecheck": "turbo run typecheck",
     "format": "prettier --write \"**/*.{ts,tsx,md,json}\" --ignore-path .gitignore",
@@ -35,7 +36,10 @@
     "*.{ts,tsx}": [
       "eslint --fix"
     ],
-    "*.{ts,tsx,md,json}": [
+    "*.{ts,tsx,json}": [
+      "prettier --write"
+    ],
+    "!(CLAUDE).md": [
       "prettier --write"
     ]
   },

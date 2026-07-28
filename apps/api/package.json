@@ -21,6 +21,7 @@
     "@repo/api-contracts": "workspace:*",
     "@trpc/server": "^11.0.0",
     "fastify": "^4.28.1",
+    "nanoid": "^3.3.7",
     "zod": "^3.23.8"
   },
   "devDependencies": {

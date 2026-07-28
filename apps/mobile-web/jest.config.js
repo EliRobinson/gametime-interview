@@ -5,4 +5,8 @@ module.exports = {
   ],
   testPathIgnorePatterns: ['<rootDir>/node_modules/', '<rootDir>/e2e/'],
   setupFilesAfterEnv: ['./jest.setup.js'],
+  // jest-expo's first render pays a cold-start compilation cost that, combined
+  // with --coverage instrumentation on a loaded CI runner, can exceed the
+  // default 5000ms — bumped so that's headroom, not a real regression signal.
+  testTimeout: 15000,
 };

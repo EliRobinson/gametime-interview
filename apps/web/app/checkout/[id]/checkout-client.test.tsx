@@ -60,9 +60,24 @@ describe('CheckoutClient', () => {
     expect(screen.getByRole('button', { name: /confirm at new price/i })).toBeInTheDocument();
   });
 
-  it('shows an unavailable message for an expired session', () => {
-    render(<CheckoutClient initialSession={{ ...baseSession, status: 'expired' }} />);
-    expect(screen.getByText(/no longer available/i)).toBeInTheDocument();
+  it('tells a lapsed session apart from a released hold', () => {
+    // Same status, different cause — and different next steps for the fan.
+    const lapsed = render(
+      <CheckoutClient
+        initialSession={{ ...baseSession, status: 'expired', expiryReason: 'session_lapsed' }}
+      />,
+    );
+    expect(screen.getByText(/checkout session expired/i)).toBeInTheDocument();
+    expect(screen.queryByText(/listing no longer available/i)).not.toBeInTheDocument();
+    lapsed.unmount();
+
+    render(
+      <CheckoutClient
+        initialSession={{ ...baseSession, status: 'expired', expiryReason: 'hold_released' }}
+      />,
+    );
+    expect(screen.getByText(/listing no longer available/i)).toBeInTheDocument();
+    expect(screen.queryByText(/checkout session expired/i)).not.toBeInTheDocument();
   });
 
   it('disables completion until an unacknowledged price change is confirmed', () => {
@@ -125,12 +140,23 @@ describe('CheckoutClient', () => {
     await waitFor(() => expect(screen.getByText(/another device/i)).toBeInTheDocument());
   });
 
-  it('falls back to the unavailable state when complete rejects with TIMEOUT', async () => {
+  it('reports a lapsed session when complete rejects with TIMEOUT', async () => {
     trpc.checkout.complete.mutate.mockRejectedValue(trpcError('TIMEOUT'));
     render(<CheckoutClient initialSession={baseSession} />);
 
     fireEvent.click(screen.getByRole('button', { name: /complete purchase/i }));
 
-    await waitFor(() => expect(screen.getByText(/no longer available/i)).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText(/checkout session expired/i)).toBeInTheDocument());
+  });
+
+  it('reports a released hold when complete rejects with UNPROCESSABLE_CONTENT', async () => {
+    trpc.checkout.complete.mutate.mockRejectedValue(trpcError('UNPROCESSABLE_CONTENT'));
+    render(<CheckoutClient initialSession={baseSession} />);
+
+    fireEvent.click(screen.getByRole('button', { name: /complete purchase/i }));
+
+    await waitFor(() =>
+      expect(screen.getByText(/listing no longer available/i)).toBeInTheDocument(),
+    );
   });
 });

@@ -281,7 +281,10 @@ function renderSession(
 
   return (
     <View className="gap-4">
-      <Text className="text-sm uppercase tracking-wide text-muted">Resumed from web</Text>
+      {/* The originating surface isn't on the session, and this screen is
+          reached by deep link as often as by in-app navigation, so don't claim
+          where the fan came from. */}
+      <Text className="text-sm uppercase tracking-wide text-muted">Resumed checkout</Text>
       <Text className="text-2xl font-bold text-gray-900">Finish your checkout</Text>
       <View className="gap-1">
         <Text className="text-muted">Total</Text>

@@ -80,7 +80,10 @@ owned by two services, and they're deliberately not collapsed. `resumeSession`
 checks the hold _live_ rather than trusting its own `expiresAt` — a session can
 be perfectly unexpired and still reference inventory that's gone. Those surface
 to the fan as different states ("your session expired" vs. "this listing is no
-longer available") and as different wire codes.
+longer available"). Because resume reports both as `status: 'expired'`, the
+session also carries an `expiryReason` (`session_lapsed` | `hold_released`) —
+without it the resume path couldn't tell the two apart, only the write path
+could. Both surfaces read it to pick the right message.
 
 **Price changes.** The session tracks `acknowledgedPrice` separately from the
 listing's live price. A mismatch blocks completion with `PRECONDITION_FAILED`

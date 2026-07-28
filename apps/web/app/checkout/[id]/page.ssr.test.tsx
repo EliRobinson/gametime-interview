@@ -65,12 +65,26 @@ describe('checkout page server render', () => {
     expect(JSON.parse(String(init.body))).toEqual({ sessionId: 'sess_ssr', surface: 'web' });
   });
 
-  it('renders an expired session as unavailable without client JS', async () => {
-    stubFetch(200, { result: { data: { ...session, status: 'expired' } } });
+  it('renders an expired session in its terminal state without client JS', async () => {
+    stubFetch(200, {
+      result: { data: { ...session, status: 'expired', expiryReason: 'session_lapsed' } },
+    });
 
     const html = await renderPage('sess_ssr');
 
-    expect(html).toMatch(/no longer available/i);
+    expect(html).toMatch(/checkout session expired/i);
+    expect(html).not.toMatch(/complete purchase/i);
+  });
+
+  it('renders a released inventory hold distinctly from a lapsed session', async () => {
+    stubFetch(200, {
+      result: { data: { ...session, status: 'expired', expiryReason: 'hold_released' } },
+    });
+
+    const html = await renderPage('sess_ssr');
+
+    expect(html).toMatch(/listing no longer available/i);
+    expect(html).not.toMatch(/checkout session expired/i);
   });
 
   it('renders a readable not-found state instead of throwing on an unknown id', async () => {

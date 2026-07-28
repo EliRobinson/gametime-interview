@@ -62,11 +62,38 @@ function errorCode(error: unknown): string {
   return typeof code === 'string' ? code : 'UNKNOWN';
 }
 
+type EndedState = 'session_lapsed' | 'hold_released' | 'not_found';
+
+const ENDED_COPY: Record<EndedState, { headline: string; detail: string }> = {
+  session_lapsed: {
+    headline: 'Checkout session expired',
+    detail:
+      'This checkout sat idle too long and expired. Nothing was charged — start a new checkout to try again.',
+  },
+  hold_released: {
+    headline: 'Listing no longer available',
+    detail: 'The hold on these tickets was released. Nothing was charged.',
+  },
+  not_found: {
+    headline: "We couldn't find that checkout",
+    detail: 'This checkout link is no longer valid. Start again from the listing.',
+  },
+};
+
+/** An already-expired session arrives from the server carrying its own reason. */
+function endedFromSession(session: CheckoutSession): EndedState | null {
+  if (session.status !== 'expired') return null;
+  return session.expiryReason === 'hold_released' ? 'hold_released' : 'session_lapsed';
+}
+
 export function CheckoutClient({ initialSession, priceChangedTo }: CheckoutClientProps) {
   const [session, setSession] = useState(initialSession);
   const [priceChanged, setPriceChanged] = useState(priceChangedTo !== undefined);
   const [newPrice, setNewPrice] = useState<number | null>(priceChangedTo ?? null);
-  const [unavailable, setUnavailable] = useState(false);
+  // Which terminal state ended this checkout, if any. A lapsed session clock and
+  // a released inventory hold are different situations with different next
+  // steps, so they are tracked apart rather than as one "unavailable" flag.
+  const [ended, setEnded] = useState<EndedState | null>(endedFromSession(initialSession));
   const [notice, setNotice] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -82,11 +109,13 @@ export function CheckoutClient({ initialSession, priceChangedTo }: CheckoutClien
         setNotice('This order is already being completed on another device.');
         return;
       case 'TIMEOUT':
+        setEnded('session_lapsed');
+        return;
       case 'UNPROCESSABLE_CONTENT':
-        setUnavailable(true);
+        setEnded('hold_released');
         return;
       case 'NOT_FOUND':
-        setUnavailable(true);
+        setEnded('not_found');
         return;
       default:
         setNotice('Something went wrong. Nothing was charged — please try again.');
@@ -124,11 +153,11 @@ export function CheckoutClient({ initialSession, priceChangedTo }: CheckoutClien
     }
   }
 
-  if (unavailable || session.status === 'expired') {
+  if (ended) {
     return (
       <section style={styles.card}>
-        <h2>This checkout is no longer available</h2>
-        <p>The hold on these tickets was released. Nothing was charged.</p>
+        <h2>{ENDED_COPY[ended].headline}</h2>
+        <p>{ENDED_COPY[ended].detail}</p>
       </section>
     );
   }

@@ -1,46 +1,47 @@
 /**
- * Gametime brand palette extracted from production web + mobile screenshots.
- * Keep `preset.js` hex values in sync with this file.
+ * Gametime brand palette sampled from https://gametime.co/ (logo SVG + main CSS)
+ * and production app screenshots. Keep `preset.js` hex values in sync.
  */
 export const colors = {
-  /** Brand mint — logo chevron, mobile CTA, deal accents */
-  accent: '#00D692',
-  accentDark: '#00B87A',
-  accentMuted: '#E8FFF5',
+  /** Brand mint — logo mark fill on gametime.co */
+  accent: '#19CE85',
+  accentDark: '#15AF71',
+  accentLight: '#52DAA3',
+  accentMuted: '#DCF7EC',
 
   /** Web checkout page background */
   canvasLight: '#F5F5F5',
-  /** Mobile / dark surfaces */
-  canvas: '#000000',
-  surfaceDark: '#1C1C1E',
-  surfaceDarkElevated: '#262626',
+  /** Mobile / marketing dark canvas (site body / icon fills) */
+  canvas: '#0C0C0D',
+  surfaceDark: '#1C1C20',
+  surfaceDarkElevated: '#2A2A2E',
 
   /** Light surfaces (web cards, inputs) */
   surface: '#FFFFFF',
-  border: '#E5E5EA',
+  border: '#DFE2E7',
 
-  /** Text */
-  text: '#111111',
-  onDark: '#FFFFFF',
-  muted: '#8E8E93',
+  /** Text — `#010314` is the dominant ink in gametime.co CSS */
+  text: '#010314',
+  onDark: '#F9F9FA',
+  muted: '#5A5A5A',
 
-  /** Web primary purchase CTA (black pill/button) */
-  cta: '#000000',
+  /** Web primary purchase CTA (site “Continue” button) */
+  cta: '#141517',
 
   /** Scarcity / urgency strip */
-  urgency: '#F5D547',
+  urgency: '#FBE217',
   urgencyBg: '#FFF8DC',
-  urgencyBorder: '#F5D547',
+  urgencyBorder: '#FBE217',
 
-  /** Price-change / alert banner (reuse urgency family) */
+  /** Price-change / alert banner */
   bannerBg: '#FFF8DC',
   bannerBorder: '#E5C84A',
 
   /** Info notice on light surfaces */
-  noticeBorder: '#C7C7CC',
+  noticeBorder: '#DFE2E7',
 
   /** Legacy aliases — primary tracks brand accent for NativeWind `bg-primary` */
-  primary: '#00D692',
-  primaryLight: '#22E0A4',
-  primaryDark: '#00B87A',
+  primary: '#19CE85',
+  primaryLight: '#52DAA3',
+  primaryDark: '#15AF71',
 } as const;

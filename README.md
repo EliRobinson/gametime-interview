@@ -36,8 +36,11 @@ how it's built and how to run it.
 pnpm install
 cp apps/api/.env.example apps/api/.env   # DATABASE_URL only matters for the users demo route
 
-pnpm dev              # api :4000 · web :3001 · mobile-web (Expo) together via Turborepo
-# Or individually: pnpm dev:api / pnpm dev:web / pnpm dev:mobile-web
+pnpm dev              # all three via Turborepo (Expo keys won't work — no TTY)
+# Prefer two terminals when you need Expo interactivity (r / j / etc.):
+pnpm dev:servers      # api :4000 · web :3001
+pnpm dev:mobile-web   # Expo with a real TTY (not via turbo)
+# Or individually: pnpm dev:api / pnpm dev:web
 ```
 
 Create a session, then open it on either surface:
@@ -210,8 +213,10 @@ cp apps/api/.env.example apps/api/.env   # set DATABASE_URL
 pnpm --filter api prisma:generate
 pnpm --filter api prisma:migrate
 
-pnpm dev              # api :4000 · web :3001 · mobile-web (Expo) together
-# Or: pnpm dev:api / pnpm dev:web / pnpm dev:mobile-web
+pnpm dev              # all three via Turborepo (Expo keys won't work — no TTY)
+pnpm dev:servers      # api :4000 · web :3001
+pnpm dev:mobile-web   # Expo with a real TTY (use alongside dev:servers)
+# Or: pnpm dev:api / pnpm dev:web
 ```
 
 ## Common commands

@@ -58,7 +58,7 @@ describe('CheckoutScreen', () => {
     render(<CheckoutScreen />);
 
     expect(screen.getByText(/loading/i)).toBeTruthy();
-    await waitFor(() => expect(screen.getByText(/complete purchase/i)).toBeTruthy());
+    await waitFor(() => expect(screen.getByTestId('complete-button')).toBeTruthy());
     expect(screen.getByText('$42.00')).toBeTruthy();
   });
 
@@ -89,8 +89,8 @@ describe('CheckoutScreen', () => {
     resume.mockResolvedValue(activeSession);
     complete.mockRejectedValue(trpcError('UNPROCESSABLE_CONTENT'));
     render(<CheckoutScreen />);
-    await waitFor(() => expect(screen.getByText(/complete purchase/i)).toBeTruthy());
-    fireEvent.press(screen.getByText(/complete purchase/i));
+    await waitFor(() => expect(screen.getByTestId('complete-button')).toBeTruthy());
+    fireEvent.press(screen.getByTestId('complete-button'));
 
     await waitFor(() => expect(screen.getByText('Listing no longer available')).toBeTruthy());
     expect(screen.queryByText('Checkout session expired')).toBeNull();
@@ -125,17 +125,17 @@ describe('CheckoutScreen', () => {
     confirmPrice.mockResolvedValue({ ...activeSession, acknowledgedPrice: 5500 });
 
     render(<CheckoutScreen />);
-    await waitFor(() => expect(screen.getByText(/complete purchase/i)).toBeTruthy());
+    await waitFor(() => expect(screen.getByTestId('complete-button')).toBeTruthy());
 
-    fireEvent.press(screen.getByText(/complete purchase/i));
+    fireEvent.press(screen.getByTestId('complete-button'));
 
-    await waitFor(() => expect(screen.getByText(/price changed/i)).toBeTruthy());
-    expect(screen.getByText(/confirm at new price/i)).toBeTruthy();
+    await waitFor(() => expect(screen.getByTestId('price-changed-banner')).toBeTruthy());
+    expect(screen.getByTestId('confirm-price-button')).toBeTruthy();
     // The fan has not been repriced: nothing was charged and no confirmation
     // was sent on their behalf.
     expect(confirmPrice).not.toHaveBeenCalled();
 
-    fireEvent.press(screen.getByText(/confirm at new price/i));
+    fireEvent.press(screen.getByTestId('confirm-price-button'));
 
     await waitFor(() =>
       expect(confirmPrice).toHaveBeenCalledWith({ sessionId: 'sess_1', surface: 'mobile' }),
@@ -143,7 +143,7 @@ describe('CheckoutScreen', () => {
     // Acknowledging the new price surfaces it and hands the fan back the
     // Complete purchase decision — it must not auto-charge.
     await waitFor(() => expect(screen.getByText('$55.00')).toBeTruthy());
-    expect(screen.getByText(/complete purchase/i)).toBeTruthy();
+    expect(screen.getByTestId('complete-button')).toBeTruthy();
     expect(complete).toHaveBeenCalledTimes(1);
   });
 
@@ -152,8 +152,8 @@ describe('CheckoutScreen', () => {
     complete.mockRejectedValue(trpcError('CONFLICT'));
 
     render(<CheckoutScreen />);
-    await waitFor(() => expect(screen.getByText(/complete purchase/i)).toBeTruthy());
-    fireEvent.press(screen.getByText(/complete purchase/i));
+    await waitFor(() => expect(screen.getByTestId('complete-button')).toBeTruthy());
+    fireEvent.press(screen.getByTestId('complete-button'));
 
     await waitFor(() => expect(screen.getByText('Finishing on another device')).toBeTruthy());
     expect(screen.getByText(/already being completed on another device/i)).toBeTruthy();
@@ -171,10 +171,10 @@ describe('CheckoutScreen', () => {
 
     render(<CheckoutScreen />);
 
-    await waitFor(() => expect(screen.getByText(/payment didn’t go through/i)).toBeTruthy());
+    await waitFor(() => expect(screen.getByText(/payment didn't go through/i)).toBeTruthy());
     expect(screen.getByText(/card_declined/i)).toBeTruthy();
 
-    fireEvent.press(screen.getByText(/try again/i));
+    fireEvent.press(screen.getByTestId('retry-button'));
 
     await waitFor(() => expect(screen.getByText(/order complete/i)).toBeTruthy());
     expect(complete).toHaveBeenCalledWith({ sessionId: 'sess_1', surface: 'mobile' });
@@ -185,7 +185,7 @@ describe('CheckoutScreen', () => {
 
     render(<CheckoutScreen />);
 
-    await waitFor(() => expect(screen.getByText(/couldn’t find this checkout/i)).toBeTruthy());
+    await waitFor(() => expect(screen.getByText(/couldn't find this checkout/i)).toBeTruthy());
   });
 
   it('handles a missing session id in the deep link without calling the API', async () => {

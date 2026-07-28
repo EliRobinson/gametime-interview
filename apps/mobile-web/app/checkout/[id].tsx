@@ -1,10 +1,10 @@
-import { CHECKOUT_ERROR_CODE, type CheckoutSession } from '@repo/api-contracts';
-import { Button } from '@repo/ui';
+import type { CheckoutSession } from '@repo/api-contracts';
+import type { CheckoutView } from '@repo/ui';
+import { CheckoutCard, viewFromErrorCode, viewFromSession } from '@repo/ui';
 import { formatCurrency } from '@repo/utils';
 import { useLocalSearchParams } from 'expo-router';
-import type { ReactNode } from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, SafeAreaView, Text, View } from 'react-native';
+import { SafeAreaView, View } from 'react-native';
 
 import { trpc } from '@/lib/trpc-client';
 
@@ -12,21 +12,6 @@ import { trpc } from '@/lib/trpc-client';
 // event log can show the web → mobile handoff rather than a second anonymous
 // session.
 const SURFACE = 'mobile' as const;
-
-/**
- * What the fan is looking at. Session expiry and inventory availability are two
- * distinct outcomes owned by two different services, so they get two distinct
- * view states (and two distinct messages) rather than one "something's wrong".
- */
-type CheckoutView =
-  | { kind: 'loading' }
-  | { kind: 'session'; session: CheckoutSession; notice: string | null }
-  | { kind: 'price_changed'; session: CheckoutSession }
-  | { kind: 'expired' }
-  | { kind: 'unavailable' }
-  | { kind: 'claimed_elsewhere' }
-  | { kind: 'not_found' }
-  | { kind: 'error'; message: string };
 
 /**
  * A `TRPCClientError` carries its wire code at `error.data.code`. Read it
@@ -39,37 +24,6 @@ function trpcErrorCode(error: unknown): string | null {
   if (typeof data !== 'object' || data === null) return null;
   const code = (data as { code?: unknown }).code;
   return typeof code === 'string' ? code : null;
-}
-
-function viewFromSession(session: CheckoutSession, notice: string | null = null): CheckoutView {
-  // An expired session carries *which* clock ran out: the session's own, or the
-  // inventory hold underneath it. They mean different things to the fan, so a
-  // released hold reads as unavailability even when resume reports it as expiry.
-  if (session.status === 'expired') {
-    return session.expiryReason === 'hold_released' ? { kind: 'unavailable' } : { kind: 'expired' };
-  }
-  return { kind: 'session', session, notice };
-}
-
-function viewFromError(error: unknown, session?: CheckoutSession): CheckoutView {
-  switch (trpcErrorCode(error)) {
-    case CHECKOUT_ERROR_CODE.NOT_FOUND:
-      return { kind: 'not_found' };
-    case CHECKOUT_ERROR_CODE.TIMEOUT:
-      return { kind: 'expired' };
-    case CHECKOUT_ERROR_CODE.UNPROCESSABLE_CONTENT:
-      return { kind: 'unavailable' };
-    case CHECKOUT_ERROR_CODE.PRECONDITION_FAILED:
-      // The fan must acknowledge the new price themselves — never reprice and
-      // charge on their behalf.
-      return session
-        ? { kind: 'price_changed', session }
-        : { kind: 'error', message: 'The price for this listing changed. Reopen your checkout.' };
-    case CHECKOUT_ERROR_CODE.CONFLICT:
-      return { kind: 'claimed_elsewhere' };
-    default:
-      return { kind: 'error', message: 'Something went wrong on our end. Please try again.' };
-  }
 }
 
 export default function CheckoutScreen() {
@@ -112,7 +66,7 @@ export default function CheckoutScreen() {
         if (isCurrent(token)) setView(viewFromSession(session));
       })
       .catch((error: unknown) => {
-        if (isCurrent(token)) setView(viewFromError(error));
+        if (isCurrent(token)) setView(viewFromErrorCode(trpcErrorCode(error)));
       });
   }, [isCurrent, sessionId]);
 
@@ -125,7 +79,7 @@ export default function CheckoutScreen() {
         const next = await trpc.checkout.complete.mutate({ sessionId, surface: SURFACE });
         if (isCurrent(token)) setView(viewFromSession(next));
       } catch (error) {
-        if (isCurrent(token)) setView(viewFromError(error, session));
+        if (isCurrent(token)) setView(viewFromErrorCode(trpcErrorCode(error), session));
       } finally {
         if (mountedRef.current) setBusy(false);
       }
@@ -148,7 +102,7 @@ export default function CheckoutScreen() {
           );
         }
       } catch (error) {
-        if (isCurrent(token)) setView(viewFromError(error, session));
+        if (isCurrent(token)) setView(viewFromErrorCode(trpcErrorCode(error), session));
       } finally {
         if (mountedRef.current) setBusy(false);
       }
@@ -159,154 +113,13 @@ export default function CheckoutScreen() {
   return (
     <SafeAreaView className="flex-1 bg-surface">
       <View className="flex-1 justify-center gap-4 px-6">
-        {renderView({ view, busy, completePurchase, confirmNewPrice })}
+        <CheckoutCard
+          view={view}
+          busy={busy}
+          onComplete={completePurchase}
+          onConfirmPrice={confirmNewPrice}
+        />
       </View>
     </SafeAreaView>
-  );
-}
-
-function renderView({
-  view,
-  busy,
-  completePurchase,
-  confirmNewPrice,
-}: {
-  view: CheckoutView;
-  busy: boolean;
-  completePurchase: (session: CheckoutSession) => void;
-  confirmNewPrice: (session: CheckoutSession) => void;
-}) {
-  switch (view.kind) {
-    case 'loading':
-      return (
-        <View className="items-center gap-3">
-          <ActivityIndicator />
-          <Text className="text-muted">Loading your checkout…</Text>
-        </View>
-      );
-
-    case 'session':
-      return renderSession(view.session, view.notice, busy, completePurchase);
-
-    case 'price_changed':
-      return (
-        <Panel
-          title="Price changed"
-          body={`The seller's price for this listing moved while your checkout was open. You last agreed to ${formatCurrency(
-            view.session.acknowledgedPrice,
-          )}. Nothing has been charged.`}
-        >
-          <Button
-            onPress={() => confirmNewPrice(view.session)}
-            testID="confirm-price-button"
-            variant="primary"
-          >
-            {busy ? 'Checking price…' : 'Confirm at new price'}
-          </Button>
-        </Panel>
-      );
-
-    case 'expired':
-      return (
-        <Panel
-          title="Checkout session expired"
-          body="Your hold on these tickets lapsed, so this checkout is no longer available. Nothing was charged — start a new checkout to try again."
-        />
-      );
-
-    case 'unavailable':
-      return (
-        <Panel
-          title="Listing no longer available"
-          body="These tickets were claimed before your purchase went through. Nothing was charged — browse similar seats instead."
-        />
-      );
-
-    case 'claimed_elsewhere':
-      return (
-        <Panel
-          title="Finishing on another device"
-          body="This order is already being completed on another device. Nothing is wrong — check that device, or come back in a moment to see the confirmation."
-        />
-      );
-
-    case 'not_found':
-      return (
-        <Panel
-          title="Checkout not found"
-          body="We couldn’t find this checkout. The link may be out of date — start a new checkout from the listing."
-        />
-      );
-
-    case 'error':
-      return <Panel title="Checkout unavailable" body={view.message} />;
-  }
-}
-
-function renderSession(
-  session: CheckoutSession,
-  notice: string | null,
-  busy: boolean,
-  completePurchase: (session: CheckoutSession) => void,
-) {
-  if (session.status === 'completed') {
-    return (
-      <Panel
-        title="Order complete"
-        body={`You're all set — ${formatCurrency(
-          session.acknowledgedPrice,
-        )} charged. Your tickets are on their way to your account.`}
-      />
-    );
-  }
-
-  if (session.status === 'failed') {
-    return (
-      <Panel
-        title="Payment didn’t go through"
-        body="Your seats are still held. You can try the payment again."
-      >
-        <Text className="text-muted" testID="failure-reason">
-          Reason: {session.failureReason ?? 'unknown'}
-        </Text>
-        <Button onPress={() => completePurchase(session)} testID="retry-button" variant="primary">
-          {busy ? 'Retrying…' : 'Try again'}
-        </Button>
-      </Panel>
-    );
-  }
-
-  return (
-    <View className="gap-4">
-      {/* The originating surface isn't on the session, and this screen is
-          reached by deep link as often as by in-app navigation, so don't claim
-          where the fan came from. */}
-      <Text className="text-sm uppercase tracking-wide text-muted">Resumed checkout</Text>
-      <Text className="text-2xl font-bold text-gray-900">Finish your checkout</Text>
-      <View className="gap-1">
-        <Text className="text-muted">Total</Text>
-        <Text className="text-4xl font-bold text-gray-900" testID="acknowledged-price">
-          {formatCurrency(session.acknowledgedPrice)}
-        </Text>
-      </View>
-      {notice ? (
-        <Text className="text-muted" testID="price-notice">
-          {notice}
-        </Text>
-      ) : null}
-      <Button onPress={() => completePurchase(session)} testID="complete-button" variant="primary">
-        {busy ? 'Completing…' : 'Complete purchase'}
-      </Button>
-    </View>
-  );
-}
-
-function Panel({ title, body, children }: { title: string; body: string; children?: ReactNode }) {
-  return (
-    <View className="gap-3">
-      <Text className="text-2xl font-bold text-gray-900">{title}</Text>
-      <Text className="text-muted">{body}</Text>
-      {children}
-    </View>
   );
 }

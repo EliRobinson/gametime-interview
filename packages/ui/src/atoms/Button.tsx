@@ -14,9 +14,9 @@ type ButtonProps = {
 // language, three platforms.
 export function Button({ onPress, children, variant = 'primary', disabled, testID }: ButtonProps) {
   const base = 'rounded-lg px-4 py-3 items-center justify-center';
-  const styles = variant === 'primary' ? `${base} bg-primary` : `${base} bg-gray-200`;
+  const styles = variant === 'primary' ? `${base} bg-primary` : `${base} bg-border`;
   const textStyles =
-    variant === 'primary' ? 'text-white font-semibold' : 'text-gray-900 font-semibold';
+    variant === 'primary' ? 'text-surface font-semibold' : 'text-ink font-semibold';
   const disabledClass = disabled ? ' opacity-50' : '';
 
   return (

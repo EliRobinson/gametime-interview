@@ -42,6 +42,7 @@ export function CheckoutClient({ initialSession, priceChangedTo }: CheckoutClien
   const [busy, setBusy] = useState(false);
 
   async function completeOrder(session: CheckoutSession) {
+    if (busy) return;
     setBusy(true);
     try {
       const next = await trpc.checkout.complete.mutate({ sessionId: session.id, surface: 'web' });
@@ -54,6 +55,7 @@ export function CheckoutClient({ initialSession, priceChangedTo }: CheckoutClien
   }
 
   async function confirmNewPrice(session: CheckoutSession) {
+    if (busy) return;
     setBusy(true);
     try {
       const next = await trpc.checkout.confirmPrice.mutate({

@@ -196,7 +196,8 @@ atomic — worth double-checking again if this logic is ever touched.
 
 ## 11. Sessions now carry an explicit `expiryReason`
 
-**What we did:** added a field (`'ttl' | 'inventory'`, nullable) alongside `status`, so a
+**What we did:** added a field (`'session_lapsed' | 'hold_released'`, nullable) alongside
+`status`, so a
 resumed session can tell a fan _why_ it's `expired` — the session's own clock ran out, or
 the independent inventory hold was released — matching the distinction `CONTEXT.md` draws
 between Session Expiration and Inventory Hold. The original plan only surfaced this
@@ -206,3 +207,43 @@ requirement exposed as a gap.
 **Production cost of leaving it out:** without it, "your session expired" and "someone else
 got the tickets" render as the same generic message, which is a real difference in what the
 fan should do next (nothing, vs. go find another listing).
+
+## 12. `apps/web` skips Next's bundled ESLint step during build — verified, not assumed
+
+**What we did:** `next.config.js` sets `eslint: { ignoreDuringBuilds: true }`, so `next build`
+never runs its own lint pass. Lint still runs as `apps/web`'s own `lint` script
+(`eslint . --max-warnings=0` against the repo's shared flat config), which is invoked by
+`pnpm lint` at the root (via Turborepo) and by CI's `Lint` step in
+`.github/workflows/ci.yml` — so no lint coverage is actually lost, it just runs as its own
+task instead of inside the Next build.
+
+**Why this isn't a shortcut we should reverse:** we tested it directly rather than assuming.
+Removing the flag and deliberately introducing an unused-variable violation (a rule the
+shared config already enforces) still produced a clean `next build` — Next 14.2.35's
+bundled ESLint integration doesn't reliably read this repo's flat `eslint.config.mjs`, so
+enabling it wouldn't add real enforcement, only a slower, silently-inert build step.
+
+**What "actually wiring it" would require:** not a config tweak — flat-config support in
+Next's built-in linter isn't dependable until Next 15, which brings its own surface area
+(React 19 baseline, App Router behavior changes) that's out of scope for this prototype.
+If in-build linting is ever wanted, that's the real fix, tracked as its own upgrade, not a
+one-line change here.
+
+## 13. No one-tap "confirm new price and buy" — verified, not a missing feature
+
+**What we did:** price reconfirmation (`confirmPrice`) and completion (`complete`) stay two
+distinct calls/taps on both `apps/web` and `apps/mobile-web`, exactly matching the "Block
+completion, require explicit re-confirmation" decision made during design. There is no
+single button that both acknowledges a new price and charges it.
+
+**Why this isn't a gap:** merging them would mean the fan authorizing a charge for a number
+`PriceChangedError` doesn't actually carry — the error only signals _that_ the price
+changed, not the new value, so a client can't legitimately skip the round trip that fetches
+it. Building a one-tap version would require changing the API contract (returning the new
+price on `PriceChangedError`, or on the `complete` response before rejecting), which is a
+deliberate scope decision, not a bug fix.
+
+**What we'd do instead, if one-tap became a real requirement:** have `PriceChangedError`
+carry the current price, and let the client render "confirm $X and complete" as a single
+action that calls `confirmPrice` then `complete` in sequence — still two API calls, but one
+fan-facing tap.

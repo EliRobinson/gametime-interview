@@ -1,3 +1,6 @@
+import './globals.css';
+
+import { cssVariables } from '@repo/tokens';
 import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
 
@@ -9,7 +12,18 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      <head>
+        <style dangerouslySetInnerHTML={{ __html: cssVariables }} />
+      </head>
+      <body
+        style={{
+          backgroundColor: 'var(--color-surface)',
+          color: 'var(--color-text)',
+          margin: 0,
+        }}
+      >
+        {children}
+      </body>
     </html>
   );
 }

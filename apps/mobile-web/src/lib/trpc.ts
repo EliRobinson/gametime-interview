@@ -8,7 +8,9 @@ import { Platform } from 'react-native';
 // AppRouter is type-only — do not value-import from `api` or Metro will pull server code.
 export const trpc = createTRPCReact<AppRouter>();
 
-function getBaseUrl() {
+// Exported so the vanilla client in `trpc-client.ts` resolves the API the same
+// way this one does — one place owns the Android emulator alias.
+export function getBaseUrl() {
   const fromEnv = process.env.EXPO_PUBLIC_API_URL;
   if (fromEnv) return fromEnv;
 

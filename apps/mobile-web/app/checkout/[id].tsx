@@ -1,4 +1,4 @@
-import type { CheckoutSession } from '@repo/api-contracts';
+import { CHECKOUT_ERROR_CODE, type CheckoutSession } from '@repo/api-contracts';
 import { Button } from '@repo/ui';
 import { useLocalSearchParams } from 'expo-router';
 import type { ReactNode } from 'react';
@@ -56,19 +56,19 @@ function viewFromSession(session: CheckoutSession, notice: string | null = null)
 
 function viewFromError(error: unknown, session?: CheckoutSession): CheckoutView {
   switch (trpcErrorCode(error)) {
-    case 'NOT_FOUND':
+    case CHECKOUT_ERROR_CODE.NOT_FOUND:
       return { kind: 'not_found' };
-    case 'TIMEOUT':
+    case CHECKOUT_ERROR_CODE.TIMEOUT:
       return { kind: 'expired' };
-    case 'UNPROCESSABLE_CONTENT':
+    case CHECKOUT_ERROR_CODE.UNPROCESSABLE_CONTENT:
       return { kind: 'unavailable' };
-    case 'PRECONDITION_FAILED':
+    case CHECKOUT_ERROR_CODE.PRECONDITION_FAILED:
       // The fan must acknowledge the new price themselves — never reprice and
       // charge on their behalf.
       return session
         ? { kind: 'price_changed', session }
         : { kind: 'error', message: 'The price for this listing changed. Reopen your checkout.' };
-    case 'CONFLICT':
+    case CHECKOUT_ERROR_CODE.CONFLICT:
       return { kind: 'claimed_elsewhere' };
     default:
       return { kind: 'error', message: 'Something went wrong on our end. Please try again.' };

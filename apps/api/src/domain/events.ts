@@ -1,3 +1,5 @@
+import type { CheckoutSurface } from '@repo/api-contracts';
+
 export type CheckoutEventName =
   | 'session_created'
   | 'session_resumed'
@@ -6,15 +8,13 @@ export type CheckoutEventName =
   | 'session_completed'
   | 'session_failed';
 
-export type Surface = 'web' | 'mobile';
-
 export interface CheckoutEvent {
   name: CheckoutEventName;
   sessionId: string;
   timestamp: string;
-  surface?: Surface;
-  fromSurface?: Surface;
-  toSurface?: Surface;
+  surface?: CheckoutSurface;
+  fromSurface?: CheckoutSurface;
+  toSurface?: CheckoutSurface;
 }
 
 export class EventLog {

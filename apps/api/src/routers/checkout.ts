@@ -1,4 +1,9 @@
-import { checkoutSessionSchema, createSessionInput, sessionIdInput } from '@repo/api-contracts';
+import {
+  CHECKOUT_ERROR_CODE,
+  checkoutSessionSchema,
+  createSessionInput,
+  sessionIdInput,
+} from '@repo/api-contracts';
 import { TRPCError } from '@trpc/server';
 
 import {
@@ -18,15 +23,35 @@ import { publicProcedure, router } from '../trpc';
 // reserved for the duplicate-completion race.
 function toTRPCError(error: unknown): TRPCError {
   if (error instanceof SessionNotFoundError)
-    return new TRPCError({ code: 'NOT_FOUND', message: error.message, cause: error });
+    return new TRPCError({
+      code: CHECKOUT_ERROR_CODE.NOT_FOUND,
+      message: error.message,
+      cause: error,
+    });
   if (error instanceof SessionExpiredError)
-    return new TRPCError({ code: 'TIMEOUT', message: error.message, cause: error });
+    return new TRPCError({
+      code: CHECKOUT_ERROR_CODE.TIMEOUT,
+      message: error.message,
+      cause: error,
+    });
   if (error instanceof ListingUnavailableError)
-    return new TRPCError({ code: 'UNPROCESSABLE_CONTENT', message: error.message, cause: error });
+    return new TRPCError({
+      code: CHECKOUT_ERROR_CODE.UNPROCESSABLE_CONTENT,
+      message: error.message,
+      cause: error,
+    });
   if (error instanceof PriceChangedError)
-    return new TRPCError({ code: 'PRECONDITION_FAILED', message: error.message, cause: error });
+    return new TRPCError({
+      code: CHECKOUT_ERROR_CODE.PRECONDITION_FAILED,
+      message: error.message,
+      cause: error,
+    });
   if (error instanceof ConflictError)
-    return new TRPCError({ code: 'CONFLICT', message: error.message, cause: error });
+    return new TRPCError({
+      code: CHECKOUT_ERROR_CODE.CONFLICT,
+      message: error.message,
+      cause: error,
+    });
   return new TRPCError({ code: 'INTERNAL_SERVER_ERROR', cause: error });
 }
 

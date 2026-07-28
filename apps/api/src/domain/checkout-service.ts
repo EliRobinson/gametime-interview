@@ -1,7 +1,7 @@
-import type { CheckoutSession, SessionExpiryReason } from '@repo/api-contracts';
+import type { CheckoutSession, CheckoutSurface, SessionExpiryReason } from '@repo/api-contracts';
 import { nanoid } from 'nanoid';
 
-import type { EventLog, Surface } from './events';
+import type { EventLog } from './events';
 import type { InventoryProvider } from './inventory-provider';
 import type { PaymentProvider } from './payment-provider';
 import type { SessionStore } from './session-store';
@@ -61,7 +61,7 @@ export class CheckoutService {
     return session;
   }
 
-  async resumeSession(id: string, surface: Surface): Promise<CheckoutSession> {
+  async resumeSession(id: string, surface: CheckoutSurface): Promise<CheckoutSession> {
     // Session expiration and the inventory hold are two independent clocks: a
     // session can be unexpired but reference inventory that is no longer held,
     // so resume checks the hold live rather than trusting `expiresAt`.
@@ -92,7 +92,7 @@ export class CheckoutService {
     return updated;
   }
 
-  async completeSession(id: string, surface: Surface): Promise<CheckoutSession> {
+  async completeSession(id: string, surface: CheckoutSurface): Promise<CheckoutSession> {
     const session = await this.expireIfNeeded(this.mustGet(id));
     if (session.status === 'expired') throw new SessionExpiredError(id);
     if (session.status === 'completed') return session;

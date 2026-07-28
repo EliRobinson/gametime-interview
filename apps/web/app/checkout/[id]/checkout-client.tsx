@@ -1,9 +1,9 @@
 'use client';
 
 import type { CheckoutSession } from '@repo/api-contracts';
+import { formatCurrency } from '@repo/utils';
 import { useState } from 'react';
 
-import { formatCents } from '#web/format';
 import { trpc } from '#web/trpc-client';
 
 export type CheckoutClientProps = {
@@ -167,7 +167,7 @@ export function CheckoutClient({ initialSession, priceChangedTo }: CheckoutClien
       <section style={styles.card}>
         <h2>You&apos;re all set</h2>
         <p>
-          Order confirmed for {session.listingId} at {formatCents(session.acknowledgedPrice)}.
+          Order confirmed for {session.listingId} at {formatCurrency(session.acknowledgedPrice)}.
         </p>
       </section>
     );
@@ -190,7 +190,7 @@ export function CheckoutClient({ initialSession, priceChangedTo }: CheckoutClien
     <section style={styles.card}>
       <div style={styles.totalRow}>
         <span>Total</span>
-        <strong style={styles.total}>{formatCents(session.acknowledgedPrice)}</strong>
+        <strong style={styles.total}>{formatCurrency(session.acknowledgedPrice)}</strong>
       </div>
 
       {priceChanged ? (
@@ -198,7 +198,7 @@ export function CheckoutClient({ initialSession, priceChangedTo }: CheckoutClien
           <p>
             {newPrice === null
               ? 'The price changed since you started this checkout.'
-              : `The price changed to ${formatCents(newPrice)} since you started this checkout.`}
+              : `The price changed to ${formatCurrency(newPrice)} since you started this checkout.`}
           </p>
           <p>Nothing is charged until you confirm the new total and complete the order.</p>
           <button type="button" style={styles.button} onClick={confirmNewPrice} disabled={busy}>

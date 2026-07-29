@@ -70,7 +70,7 @@ describe('ListingsMap', () => {
     const bubble = screen.getByTestId(`map-bubble-${listingId}`);
     const labels = bubble.findAllByType(RNText);
     expect(labels.length).toBeGreaterThan(0);
-    labels.forEach((label) => {
+    labels.forEach((label: { props: { style: { color: string } } }) => {
       expect(label.props.style.color).toBe(expectedLabelColor);
     });
   });

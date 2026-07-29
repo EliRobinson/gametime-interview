@@ -218,6 +218,9 @@ session.
 - Playwright (or similar) E2E for create-on-web / complete-on-mobile.
 - Real idempotency keys on the payment call so a retry after a network timeout
   can't double-charge if the process dies mid-flight.
+- Cleaner overall UI, I definitely spent a good amount of time spitting and polishing because I hold myself to a high standard, however I would probably have done more real Gametime matching for overall look and feel.
+- Made the stadium (I changed to use the actual map you use on your website) scale better with all screen sizes, responsively, and on the mobile app too
+- True web to mobile deep-linking
 
 ---
 

@@ -1,20 +1,28 @@
 import { colors } from '@repo/tokens';
-import { Pressable, Text as RNText, View } from 'react-native';
+import { Image, Pressable, Text as RNText, View } from 'react-native';
 
 import { useTheme } from '../../theme';
+import { stadiumMapImageUrl } from '../checkout/stadiumMapImage.util';
 import type { ListingRowView } from './listings.view-model';
 
 type ListingsMapProps = {
   listings: ListingRowView[];
   selectedListingId: string | null;
   onSelect: (listingId: string) => void;
+  /** CDN encode width — selection map is large, so default high. */
+  imageWidth?: number;
 };
 
 /**
  * Static stadium backdrop with price bubbles. Not an interactive map engine —
- * bubbles are positioned from fixture percentages.
+ * bubbles are positioned from fixture percentages over the Gametime venue image.
  */
-export function ListingsMap({ listings, selectedListingId, onSelect }: ListingsMapProps) {
+export function ListingsMap({
+  listings,
+  selectedListingId,
+  onSelect,
+  imageWidth = 1280,
+}: ListingsMapProps) {
   const theme = useTheme();
   const isDark = theme.name === 'dark';
 
@@ -22,8 +30,11 @@ export function ListingsMap({ listings, selectedListingId, onSelect }: ListingsM
     <View
       testID="listings-map"
       style={{
+        display: 'flex',
         flex: 1,
-        minHeight: 280,
+        alignSelf: 'stretch',
+        minHeight: 0,
+        position: 'relative',
         borderRadius: theme.radius.lg,
         overflow: 'hidden',
         backgroundColor: isDark ? colors.stadiumMapBgDark : colors.stadiumMapBg,
@@ -31,7 +42,21 @@ export function ListingsMap({ listings, selectedListingId, onSelect }: ListingsM
         borderColor: isDark ? colors.surfaceDarkElevated : colors.border,
       }}
     >
-      <StadiumSchematic isDark={isDark} />
+      <Image
+        testID="listings-stadium-image"
+        accessibilityIgnoresInvertColors
+        source={{ uri: stadiumMapImageUrl(imageWidth) }}
+        style={{
+          position: 'absolute',
+          top: 0,
+          right: 0,
+          bottom: 0,
+          left: 0,
+          width: '100%',
+          height: '100%',
+        }}
+        resizeMode="cover"
+      />
       {listings.map((listing) => {
         const selected = listing.listingId === selectedListingId;
         const bubbleColor = listing.isSuperDeal
@@ -39,7 +64,8 @@ export function ListingsMap({ listings, selectedListingId, onSelect }: ListingsM
           : isDark
             ? colors.surfaceDark
             : colors.cta;
-        const labelColor = colors.onDark;
+        // Accent green fails WCAG with light glyphs (~2:1); dark ink clears AAA.
+        const labelColor = listing.isSuperDeal ? colors.canvas : colors.onDark;
 
         return (
           <Pressable
@@ -60,8 +86,8 @@ export function ListingsMap({ listings, selectedListingId, onSelect }: ListingsM
               paddingVertical: 6,
               borderRadius: 999,
               backgroundColor: bubbleColor,
-              borderWidth: selected ? 2 : 0,
-              borderColor: colors.link,
+              borderWidth: 2,
+              borderColor: selected ? colors.link : 'transparent',
               flexDirection: 'row',
               alignItems: 'center',
               gap: 4,
@@ -76,60 +102,6 @@ export function ListingsMap({ listings, selectedListingId, onSelect }: ListingsM
           </Pressable>
         );
       })}
-    </View>
-  );
-}
-
-function StadiumSchematic({ isDark }: { isDark: boolean }) {
-  const bowl = isDark ? colors.stadiumBowlDark : colors.stadiumBowl;
-  const field = isDark ? colors.stadiumFieldDark : colors.stadiumField;
-  const stage = isDark ? colors.surfaceDarkElevated : colors.stadiumStage;
-
-  return (
-    <View
-      style={{
-        position: 'absolute',
-        top: 24,
-        right: 24,
-        bottom: 24,
-        left: 24,
-        alignItems: 'center',
-        justifyContent: 'center',
-        pointerEvents: 'none',
-      }}
-    >
-      <View
-        style={{
-          width: '88%',
-          height: '78%',
-          borderRadius: 999,
-          backgroundColor: bowl,
-          opacity: 0.85,
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}
-      >
-        <View
-          style={{
-            width: '42%',
-            height: '58%',
-            borderRadius: 16,
-            backgroundColor: field,
-            alignItems: 'flex-start',
-            justifyContent: 'center',
-            paddingLeft: 8,
-          }}
-        >
-          <View
-            style={{
-              width: 18,
-              height: '70%',
-              borderRadius: 4,
-              backgroundColor: stage,
-            }}
-          />
-        </View>
-      </View>
     </View>
   );
 }

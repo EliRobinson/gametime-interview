@@ -2,6 +2,7 @@ import './globals.css';
 
 import { cssVariables } from '@repo/tokens';
 import type { Metadata } from 'next';
+import Link from 'next/link';
 import type { ReactNode } from 'react';
 
 export const metadata: Metadata = {
@@ -33,7 +34,17 @@ export default function RootLayout({ children }: { children: ReactNode }) {
             padding: '0.85rem 1.5rem',
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+          <Link
+            href="/"
+            aria-label="Gametime home"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.35rem',
+              color: 'inherit',
+              textDecoration: 'none',
+            }}
+          >
             <span
               style={{
                 fontWeight: 800,
@@ -50,7 +61,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
             >
               ›
             </span>
-          </div>
+          </Link>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
             <span style={{ fontWeight: 600, fontSize: '0.95rem' }}>Checkout</span>
             <span

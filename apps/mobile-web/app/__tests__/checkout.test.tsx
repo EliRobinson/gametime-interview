@@ -11,16 +11,18 @@ jest.mock('../../src/lib/trpc-client', () => ({
       resume: { mutate: jest.fn() },
       complete: { mutate: jest.fn() },
       confirmPrice: { mutate: jest.fn() },
+      release: { mutate: jest.fn() },
     },
   },
 }));
 
 // Prefixed with `mock` so jest's module factory is allowed to close over it.
 let mockParams: Record<string, string | string[] | undefined> = { id: 'sess_1' };
+const mockBack = jest.fn();
 
 jest.mock('expo-router', () => ({
   useLocalSearchParams: () => mockParams,
-  useRouter: () => ({ back: jest.fn() }),
+  useRouter: () => ({ back: mockBack }),
 }));
 
 const activeSession: CheckoutSession = {
@@ -37,6 +39,7 @@ const activeSession: CheckoutSession = {
 const resume = trpc.checkout.resume.mutate as jest.Mock;
 const complete = trpc.checkout.complete.mutate as jest.Mock;
 const confirmPrice = trpc.checkout.confirmPrice.mutate as jest.Mock;
+const release = trpc.checkout.release.mutate as jest.Mock;
 
 // A TRPCClientError carries its wire code on `error.data.code`; the screen
 // duck-types that shape rather than importing the class, so the fakes below
@@ -47,9 +50,16 @@ function trpcError(code: string, message = code) {
 
 beforeEach(() => {
   mockParams = { id: 'sess_1' };
+  mockBack.mockReset();
   resume.mockReset();
   complete.mockReset();
   confirmPrice.mockReset();
+  release.mockReset();
+  release.mockResolvedValue({
+    ...activeSession,
+    status: 'expired',
+    expiryReason: 'hold_released',
+  });
 });
 
 describe('CheckoutScreen', () => {
@@ -210,17 +220,39 @@ describe('CheckoutScreen', () => {
     expect(resume).not.toHaveBeenCalled();
   });
 
-  it('shows Share tickets with web and mobile resume URLs', async () => {
+  it('shows Share tickets for an active session without exposing raw URLs', async () => {
     resume.mockResolvedValue(activeSession);
 
     render(<CheckoutScreen />);
 
     await waitFor(() => expect(screen.getByTestId('share-tickets-button')).toBeTruthy());
-    expect(screen.getByTestId('share-web-url').props.children).toContain(
-      'http://localhost:3001/checkout/sess_1',
+    expect(screen.queryByText(/http:\/\/localhost:3001\/checkout\//)).toBeNull();
+    expect(screen.queryByText(/mobileweb:\/\/checkout\//)).toBeNull();
+  });
+
+  it('releases the ticket hold when the fan taps back', async () => {
+    resume.mockResolvedValue(activeSession);
+
+    render(<CheckoutScreen />);
+    await waitFor(() => expect(screen.getByTestId('checkout-back')).toBeTruthy());
+
+    fireEvent.press(screen.getByTestId('checkout-back'));
+
+    await waitFor(() =>
+      expect(release).toHaveBeenCalledWith({ sessionId: 'sess_1', surface: 'mobile' }),
     );
-    expect(screen.getByTestId('share-mobile-url').props.children).toContain(
-      'mobileweb://checkout/sess_1',
-    );
+    expect(mockBack).toHaveBeenCalled();
+  });
+
+  it('still navigates back if release fails', async () => {
+    resume.mockResolvedValue(activeSession);
+    release.mockRejectedValue(new Error('offline'));
+
+    render(<CheckoutScreen />);
+    await waitFor(() => expect(screen.getByTestId('checkout-back')).toBeTruthy());
+
+    fireEvent.press(screen.getByTestId('checkout-back'));
+
+    await waitFor(() => expect(mockBack).toHaveBeenCalled());
   });
 });

@@ -9,6 +9,12 @@ export { GuaranteePanel } from './GuaranteePanel';
 export { mapCheckoutPresentation } from './mapCheckoutPresentation.util';
 export { priceUpdatedNotice, viewFromErrorCode, viewFromSession } from './mapCheckoutView.util';
 export { PriceBreakdown } from './PriceBreakdown';
+export { ShareTickets } from './ShareTickets';
+export {
+  STADIUM_MAP_WIDTHS,
+  stadiumMapImageSrcSet,
+  stadiumMapImageUrl,
+} from './stadiumMapImage.util';
 export { SuperDealBanner } from './SuperDealBanner';
 export { TicketProtectionCard } from './TicketProtectionCard';
 export { UrgencyBanner } from './UrgencyBanner';

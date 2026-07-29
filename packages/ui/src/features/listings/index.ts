@@ -1,5 +1,5 @@
 export { ListingCard } from './ListingCard';
-export { ListingDetail } from './ListingDetail';
+export { ListingDetail, SelectionEventHeader } from './ListingDetail';
 export { LISTINGS_COPY } from './listings.copy';
 export { DEMO_EVENT, LISTING_FIXTURES } from './listings.fixtures';
 export type {

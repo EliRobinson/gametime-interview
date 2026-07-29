@@ -155,13 +155,30 @@ describe('CheckoutCard', () => {
     );
 
     expect(screen.getByText(CHECKOUT_COPY.shareTickets)).toBeTruthy();
-    expect(screen.getByTestId('share-web-url')).toBeTruthy();
-    expect(screen.getByTestId('share-mobile-url')).toBeTruthy();
+    expect(screen.getByTestId('share-tickets')).toBeTruthy();
+    expect(screen.queryByText('http://localhost:3001/checkout/sess_1')).toBeNull();
+    expect(screen.queryByText('mobileweb://checkout/sess_1')).toBeNull();
     fireEvent.press(screen.getByTestId('share-tickets-button'));
     expect(onShare).toHaveBeenCalledWith({
       webUrl: 'http://localhost:3001/checkout/sess_1',
       mobileUrl: 'mobileweb://checkout/sess_1',
     });
+  });
+
+  it('hides Share tickets when showShare is false', () => {
+    render(
+      <CheckoutCard
+        view={{ kind: 'ready', session: activeSession, notice: null }}
+        busy={false}
+        onComplete={noop}
+        onConfirmPrice={noop}
+        shareWebUrl="http://localhost:3001/checkout/sess_1"
+        shareMobileUrl="mobileweb://checkout/sess_1"
+        showShare={false}
+      />,
+    );
+
+    expect(screen.queryByTestId('share-tickets')).toBeNull();
   });
 
   it('hides Share tickets when share URLs are omitted', () => {

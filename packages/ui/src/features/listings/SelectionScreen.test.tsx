@@ -38,46 +38,88 @@ const view: SelectionViewModel = {
   ],
 };
 
+const defaultProps = {
+  view,
+  loading: false,
+  loadError: false,
+  busy: false,
+  createError: null as string | null,
+  onRetry: jest.fn(),
+  onContinue: jest.fn(),
+};
+
 describe('SelectionScreen', () => {
-  it('disables Continue until an available listing is selected', () => {
-    const onContinue = jest.fn();
+  describe('sidebar layout (sticky dock)', () => {
+    it('disables Continue until an available listing is selected', () => {
+      const onContinue = jest.fn();
 
-    render(
-      <SelectionScreen
-        view={view}
-        loading={false}
-        loadError={false}
-        busy={false}
-        createError={null}
-        onRetry={jest.fn()}
-        onContinue={onContinue}
-      />,
-    );
+      render(<SelectionScreen {...defaultProps} onContinue={onContinue} layout="sidebar" />);
 
-    expect(screen.getByTestId('listing-continue').props.accessibilityState?.disabled).toBe(true);
+      expect(screen.getByTestId('selection-event-header')).toBeTruthy();
+      expect(screen.getByTestId('listing-detail-empty')).toBeTruthy();
+      expect(screen.getByTestId('listing-continue').props.accessibilityState?.disabled).toBe(true);
 
-    fireEvent.press(screen.getByTestId('listing-card-listing_1'));
-    expect(screen.getByTestId('listing-continue').props.accessibilityState?.disabled).toBe(false);
+      fireEvent.press(screen.getByTestId('listing-card-listing_1'));
+      expect(screen.getByTestId('listing-detail')).toBeTruthy();
+      expect(screen.getByTestId('listing-continue').props.accessibilityState?.disabled).toBe(false);
 
-    fireEvent.press(screen.getByTestId('listing-continue'));
-    expect(onContinue).toHaveBeenCalledWith(expect.objectContaining({ listingId: 'listing_1' }));
+      fireEvent.press(screen.getByTestId('listing-continue'));
+      expect(onContinue).toHaveBeenCalledWith(expect.objectContaining({ listingId: 'listing_1' }));
+    });
+
+    it('keeps the event header mounted when selecting a listing', () => {
+      render(<SelectionScreen {...defaultProps} layout="sidebar" />);
+
+      expect(screen.getByTestId('selection-event-header')).toBeTruthy();
+      fireEvent.press(screen.getByTestId('listing-card-listing_1'));
+      expect(screen.getByTestId('selection-event-header')).toBeTruthy();
+      expect(screen.getByTestId('listing-detail')).toBeTruthy();
+      expect(screen.queryByTestId('listing-detail-empty')).toBeNull();
+    });
+
+    it('does not select an unavailable listing from a card', () => {
+      render(<SelectionScreen {...defaultProps} layout="sidebar" />);
+
+      fireEvent.press(screen.getByTestId('listing-card-listing_2'));
+      expect(screen.getByTestId('listing-detail-empty')).toBeTruthy();
+    });
   });
 
-  it('does not select an unavailable listing from a card', () => {
-    render(
-      <SelectionScreen
-        view={view}
-        loading={false}
-        loadError={false}
-        busy={false}
-        createError={null}
-        onRetry={jest.fn()}
-        onContinue={jest.fn()}
-      />,
-    );
+  describe('stacked layout (inline expand)', () => {
+    it('expands Continue on the selected card without a sticky dock', () => {
+      const onContinue = jest.fn();
 
-    fireEvent.press(screen.getByTestId('listing-card-listing_2'));
-    expect(screen.getByTestId('listing-detail-empty')).toBeTruthy();
+      render(<SelectionScreen {...defaultProps} onContinue={onContinue} layout="stacked" />);
+
+      expect(screen.queryByTestId('listing-detail-empty')).toBeNull();
+      expect(screen.queryByTestId('listing-detail')).toBeNull();
+      expect(screen.queryByTestId('listing-continue')).toBeNull();
+
+      fireEvent.press(screen.getByTestId('listing-card-listing_1'));
+      expect(screen.getByTestId('listing-card-expanded-listing_1')).toBeTruthy();
+      expect(screen.getByTestId('listing-continue').props.accessibilityState?.disabled).toBe(false);
+
+      fireEvent.press(screen.getByTestId('listing-continue'));
+      expect(onContinue).toHaveBeenCalledWith(expect.objectContaining({ listingId: 'listing_1' }));
+    });
+
+    it('keeps the map and event header mounted when selecting', () => {
+      render(<SelectionScreen {...defaultProps} layout="stacked" />);
+
+      expect(screen.getByTestId('selection-event-header')).toBeTruthy();
+      expect(screen.getByTestId('listings-map')).toBeTruthy();
+      fireEvent.press(screen.getByTestId('listing-card-listing_1'));
+      expect(screen.getByTestId('selection-event-header')).toBeTruthy();
+      expect(screen.getByTestId('listings-map')).toBeTruthy();
+    });
+
+    it('does not expand an unavailable listing', () => {
+      render(<SelectionScreen {...defaultProps} layout="stacked" />);
+
+      fireEvent.press(screen.getByTestId('listing-card-listing_2'));
+      expect(screen.queryByTestId('listing-card-expanded-listing_2')).toBeNull();
+      expect(screen.queryByTestId('listing-continue')).toBeNull();
+    });
   });
 
   it('shows load error and retry', () => {
@@ -85,11 +127,9 @@ describe('SelectionScreen', () => {
 
     render(
       <SelectionScreen
+        {...defaultProps}
         view={null}
-        loading={false}
         loadError
-        busy={false}
-        createError={null}
         onRetry={onRetry}
         onContinue={jest.fn()}
       />,

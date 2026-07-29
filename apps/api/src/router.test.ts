@@ -188,4 +188,20 @@ describe('appRouter.checkout', () => {
     expect(resumedEvent?.toSurface).toBe('mobile');
     expect(completedEvent?.surface).toBe('mobile');
   });
+
+  it('releases the hold so the listing can be selected again', async () => {
+    const { caller, inventory } = createCheckoutCaller();
+    const created = await caller.checkout.create({ listingId: 'listing_1' });
+
+    const released = await caller.checkout.release({
+      sessionId: created.id,
+      surface: 'mobile',
+    });
+
+    expect(released).toMatchObject({ status: 'expired', expiryReason: 'hold_released' });
+    await expect(inventory.getHoldStatus('listing_1')).resolves.toMatchObject({ held: false });
+    await expect(caller.checkout.create({ listingId: 'listing_1' })).resolves.toMatchObject({
+      status: 'active',
+    });
+  });
 });

@@ -99,4 +99,15 @@ export const checkoutRouter = router({
         throw toTRPCError(error);
       }
     }),
+
+  release: publicProcedure
+    .input(sessionIdInput)
+    .output(checkoutSessionSchema)
+    .mutation(async ({ ctx, input }) => {
+      try {
+        return await ctx.checkout.releaseSession(input.sessionId, input.surface);
+      } catch (error) {
+        throw toTRPCError(error);
+      }
+    }),
 });

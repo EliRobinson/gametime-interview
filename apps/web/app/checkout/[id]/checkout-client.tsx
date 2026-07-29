@@ -12,7 +12,7 @@ import {
   viewFromSession,
 } from '@repo/ui';
 import { trpcErrorCode } from '@repo/utils';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { trpc } from '#web/trpc-client';
 
@@ -46,10 +46,25 @@ function showsTerms(view: CheckoutView): boolean {
   return view.kind === 'ready' || view.kind === 'price_changed' || view.kind === 'failed';
 }
 
+function sessionFromView(view: CheckoutView): CheckoutSession | null {
+  return 'session' in view && view.session ? view.session : null;
+}
+
+function isLeavingCheckout(href: string, currentPathname: string): boolean {
+  try {
+    const url = new URL(href, window.location.origin);
+    if (url.origin !== window.location.origin) return true;
+    return url.pathname !== currentPathname;
+  } catch {
+    return false;
+  }
+}
+
 export function CheckoutClient({ initialSession, priceChangedTo }: CheckoutClientProps) {
   const [view, setView] = useState<CheckoutView>(() => initialView(initialSession, priceChangedTo));
   const [busy, setBusy] = useState(false);
   const [shareFeedback, setShareFeedback] = useState<string | null>(null);
+  const allowUnloadRef = useRef(false);
 
   const shareSession =
     'session' in view && view.session && isShareableSession(view.session) ? view.session : null;
@@ -58,6 +73,85 @@ export function CheckoutClient({ initialSession, priceChangedTo }: CheckoutClien
     if (!shareSession) return null;
     return buildCheckoutShareUrls(shareSession.id, webOrigin());
   }, [shareSession]);
+
+  const heldSession = sessionFromView(view);
+  const holdSessionId = heldSession && isShareableSession(heldSession) ? heldSession.id : null;
+
+  useEffect(() => {
+    if (!holdSessionId) return;
+
+    const sessionId = holdSessionId;
+    const leaveMessage = CHECKOUT_COPY.leaveLockWarning;
+
+    async function releaseHold(): Promise<void> {
+      try {
+        await trpc.checkout.release.mutate({ sessionId, surface: 'web' });
+      } catch {
+        // Fan is leaving either way — don't block navigation on release errors.
+      }
+    }
+
+    async function confirmAndRelease(): Promise<boolean> {
+      if (!window.confirm(leaveMessage)) return false;
+      await releaseHold();
+      return true;
+    }
+
+    function onBeforeUnload(event: BeforeUnloadEvent) {
+      if (allowUnloadRef.current) return;
+      event.preventDefault();
+      event.returnValue = leaveMessage;
+    }
+
+    function onDocumentClick(event: MouseEvent) {
+      if (allowUnloadRef.current) return;
+      const target = event.target;
+      if (!(target instanceof Element)) return;
+      const anchor = target.closest('a[href]');
+      if (!(anchor instanceof HTMLAnchorElement)) return;
+      const href = anchor.getAttribute('href');
+      if (!href || href.startsWith('#') || href.startsWith('mailto:')) return;
+      if (!isLeavingCheckout(href, window.location.pathname)) return;
+
+      event.preventDefault();
+      event.stopPropagation();
+
+      const destination = new URL(href, window.location.origin).href;
+      void (async () => {
+        if (!(await confirmAndRelease())) return;
+        allowUnloadRef.current = true;
+        window.location.assign(destination);
+      })();
+    }
+
+    // Sentinel so the first Back press stays on checkout long enough to confirm.
+    // Skip if already present (React Strict Mode remount).
+    if (window.history.state?.checkoutLeaveGuard !== true) {
+      window.history.pushState({ checkoutLeaveGuard: true }, '', window.location.href);
+    }
+
+    function onPopState() {
+      if (allowUnloadRef.current) return;
+      void (async () => {
+        if (!(await confirmAndRelease())) {
+          window.history.pushState({ checkoutLeaveGuard: true }, '', window.location.href);
+          return;
+        }
+        allowUnloadRef.current = true;
+        window.history.back();
+      })();
+    }
+
+    window.addEventListener('beforeunload', onBeforeUnload);
+    document.addEventListener('click', onDocumentClick, true);
+    window.addEventListener('popstate', onPopState);
+
+    return () => {
+      window.removeEventListener('beforeunload', onBeforeUnload);
+      document.removeEventListener('click', onDocumentClick, true);
+      window.removeEventListener('popstate', onPopState);
+    };
+  }, [holdSessionId]);
 
   async function completeOrder(session: CheckoutSession) {
     if (busy) return;
@@ -89,9 +183,8 @@ export function CheckoutClient({ initialSession, priceChangedTo }: CheckoutClien
   }
 
   async function onShare(payload: { webUrl: string; mobileUrl: string }) {
-    const body = `${payload.webUrl}\nApp: ${payload.mobileUrl}`;
     try {
-      await navigator.clipboard.writeText(body);
+      await navigator.clipboard.writeText(payload.webUrl);
       setShareFeedback('Link copied');
     } catch {
       setShareFeedback(payload.webUrl);

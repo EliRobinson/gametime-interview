@@ -1,5 +1,5 @@
 import { colors } from '@repo/tokens';
-import { View } from 'react-native';
+import { Pressable, Text as RNText, View } from 'react-native';
 
 import { Text } from '../../atoms/Text';
 import { useTheme } from '../../theme';
@@ -20,11 +20,7 @@ export function TicketProtectionCard({
       testID={testID}
       style={{
         gap: theme.space[3],
-        padding: theme.space[4],
-        borderRadius: theme.radius.lg,
-        backgroundColor: colors.surface,
-        borderWidth: 1,
-        borderColor: colors.border,
+        paddingVertical: theme.space[4],
       }}
     >
       <View
@@ -36,25 +32,46 @@ export function TicketProtectionCard({
         }}
       >
         <View style={{ flex: 1, gap: theme.space[1] }}>
-          <Text variant="title">{CHECKOUT_COPY.ticketProtectionTitle}</Text>
-          <Text variant="body">{CHECKOUT_COPY.ticketProtectionPrice}</Text>
+          <RNText
+            style={{
+              fontSize: theme.fontSize.base,
+              fontWeight: theme.fontWeight.bold,
+              lineHeight: 22,
+              color: theme.text,
+            }}
+          >
+            {CHECKOUT_COPY.ticketProtectionTitle}
+          </RNText>
+          <Text variant="muted">{CHECKOUT_COPY.ticketProtectionPrice}</Text>
         </View>
-        <View
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={CHECKOUT_COPY.ticketProtectionAdd}
+          disabled
           style={{
             paddingHorizontal: theme.space[3],
             paddingVertical: theme.space[2],
             borderRadius: theme.radius.md,
             borderWidth: 1,
             borderColor: colors.border,
+            backgroundColor: colors.surface,
           }}
         >
           <Text variant="eyebrow">{CHECKOUT_COPY.ticketProtectionAdd}</Text>
-        </View>
+        </Pressable>
       </View>
-      <Text variant="muted">
+      <RNText
+        style={{
+          color: theme.muted,
+          fontSize: theme.fontSize.base,
+          lineHeight: 22,
+        }}
+      >
         {CHECKOUT_COPY.ticketProtectionBody}
-        {CHECKOUT_COPY.ticketProtectionLearnMore}
-      </Text>
+        <RNText style={{ color: colors.link, textDecorationLine: 'underline' }}>
+          {CHECKOUT_COPY.ticketProtectionLearnMore}
+        </RNText>
+      </RNText>
       <Text variant="muted">{CHECKOUT_COPY.ticketProtectionPoweredBy}</Text>
     </View>
   );

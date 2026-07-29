@@ -75,6 +75,9 @@ describe('checkout page server render', () => {
     expect(html).toContain('$154.00');
     expect(html).toContain('Ed Sheeran');
     expect(html).toContain('Upper 309, Row JJ');
+    expect(html).toContain('maps.gametime.co/v2/centurylink_field/edsheeran/edsheeran-8.png');
+    expect(html).toContain('width=768');
+    expect(html).toContain('1280w');
   });
 
   it('renders an expired session in its terminal state without client JS', async () => {

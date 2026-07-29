@@ -1,4 +1,5 @@
-import { Pressable, View } from 'react-native';
+import { colors } from '@repo/tokens';
+import { Pressable, Text as RNText, View } from 'react-native';
 
 import { Text } from '../../atoms/Text';
 import { useTheme } from '../../theme';
@@ -33,20 +34,38 @@ export function PriceBreakdown({
             alignItems: 'center',
             justifyContent: 'space-between',
             gap: theme.space[3],
+            paddingVertical: theme.space[3],
+            borderTopWidth: 1,
+            borderColor: colors.border,
           }}
         >
-          <Text variant="title" testID="acknowledged-price">
+          <RNText
+            style={{
+              fontSize: theme.fontSize.base,
+              fontWeight: theme.fontWeight.bold,
+              lineHeight: 22,
+              color: theme.text,
+            }}
+            testID="acknowledged-price"
+          >
             {presentation.formattedTotal} Total
-          </Text>
+          </RNText>
           <Pressable
             accessibilityRole="button"
             accessibilityLabel={expanded ? CHECKOUT_COPY.hideDetails : CHECKOUT_COPY.showDetails}
             onPress={onToggleDetails}
             testID="toggle-price-details"
+            style={{ flexDirection: 'row', alignItems: 'center', gap: theme.space[1] }}
           >
-            <Text variant="muted">
+            <RNText
+              style={{
+                color: colors.link,
+                fontSize: theme.fontSize.base,
+                fontWeight: theme.fontWeight.semibold,
+              }}
+            >
               {expanded ? CHECKOUT_COPY.hideDetails : CHECKOUT_COPY.showDetails}
-            </Text>
+            </RNText>
           </Pressable>
         </View>
       ) : null}

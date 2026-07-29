@@ -4,7 +4,6 @@ export const LISTINGS_COPY = {
   superDealBadge: 'SUPER DEAL',
   superDealTitle: 'You found a Super Deal!',
   superDealBody: 'These tickets are in the top 1% for this event, based on value.',
-  urgency: 'Only a few tickets left at this price!',
   seatsTogether: (count: number) => `${count} Seats Together`,
   priceEach: (formatted: string) => `${formatted} each including all fees`,
   unavailable: 'Unavailable',

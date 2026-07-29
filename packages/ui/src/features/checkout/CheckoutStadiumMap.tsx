@@ -1,30 +1,35 @@
 import { colors } from '@repo/tokens';
-import { View } from 'react-native';
+import { Image, Text as RNText, View } from 'react-native';
 
-import { Text } from '../../atoms/Text';
 import { useTheme } from '../../theme';
 import type { CheckoutMapBubble } from './checkout.view-model';
+import { stadiumMapImageUrl } from './stadiumMapImage.util';
 
 type CheckoutStadiumMapProps = {
   bubble: CheckoutMapBubble | null;
   testID?: string;
+  /** CDN encode width — bump for larger surfaces. */
+  imageWidth?: number;
 };
 
 /**
- * Static stadium schematic with an optional selected-section bubble.
- * Same spirit as listings map — not an interactive map engine.
+ * Static stadium map with an optional selected-section bubble.
+ * Uses Gametime's venue image CDN; not an interactive map engine.
  */
 export function CheckoutStadiumMap({
   bubble,
   testID = 'checkout-stadium-map',
+  imageWidth = 768,
 }: CheckoutStadiumMapProps) {
   const theme = useTheme();
+  // Accent green fails WCAG with light glyphs (~2:1); dark ink clears AAA.
+  const glyphColor = bubble?.isSuperDeal ? colors.canvas : colors.onDark;
 
   return (
     <View
       testID={testID}
       style={{
-        height: 160,
+        height: 220,
         borderRadius: theme.radius.lg,
         overflow: 'hidden',
         backgroundColor: colors.stadiumMapBg,
@@ -32,7 +37,12 @@ export function CheckoutStadiumMap({
         borderColor: colors.border,
       }}
     >
-      <StadiumSchematic />
+      <Image
+        accessibilityIgnoresInvertColors
+        source={{ uri: stadiumMapImageUrl(imageWidth) }}
+        style={{ width: '100%', height: '100%' }}
+        resizeMode="cover"
+      />
       {bubble ? (
         <View
           testID="checkout-map-bubble"
@@ -49,59 +59,17 @@ export function CheckoutStadiumMap({
             borderColor: colors.link,
           }}
         >
-          <Text variant="eyebrow">{bubble.isSuperDeal ? '★' : '●'}</Text>
+          <RNText
+            style={{
+              color: glyphColor,
+              fontSize: theme.fontSize.xs,
+              fontWeight: theme.fontWeight.semibold,
+            }}
+          >
+            {bubble.isSuperDeal ? '★' : '●'}
+          </RNText>
         </View>
       ) : null}
-    </View>
-  );
-}
-
-function StadiumSchematic() {
-  return (
-    <View
-      style={{
-        position: 'absolute',
-        top: 16,
-        right: 16,
-        bottom: 16,
-        left: 16,
-        alignItems: 'center',
-        justifyContent: 'center',
-        pointerEvents: 'none',
-      }}
-    >
-      <View
-        style={{
-          width: '88%',
-          height: '78%',
-          borderRadius: 999,
-          backgroundColor: colors.stadiumBowl,
-          opacity: 0.85,
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}
-      >
-        <View
-          style={{
-            width: '42%',
-            height: '58%',
-            borderRadius: 16,
-            backgroundColor: colors.stadiumField,
-            alignItems: 'flex-start',
-            justifyContent: 'center',
-            paddingLeft: 8,
-          }}
-        >
-          <View
-            style={{
-              width: 18,
-              height: '70%',
-              borderRadius: 4,
-              backgroundColor: colors.stadiumStage,
-            }}
-          />
-        </View>
-      </View>
     </View>
   );
 }

@@ -212,4 +212,39 @@ describe('CheckoutService', () => {
     await expect(service.completeSession(session.id, 'web')).rejects.toThrow(SessionExpiredError);
     jest.useRealTimers();
   });
+
+  it('releases the inventory hold and expires the session when the fan abandons checkout', async () => {
+    const { service, inventory } = setup();
+    const session = await service.createSession('listing_1');
+
+    const released = await service.releaseSession(session.id, 'mobile');
+
+    expect(released.status).toBe('expired');
+    expect(released.expiryReason).toBe('hold_released');
+    await expect(inventory.getHoldStatus('listing_1')).resolves.toMatchObject({ held: false });
+    // Listing is free for a new checkout.
+    await expect(service.createSession('listing_1')).resolves.toMatchObject({ status: 'active' });
+  });
+
+  it('is a no-op for an already-completed session and does not release sold inventory', async () => {
+    const { service, inventory } = setup();
+    const session = await service.createSession('listing_1');
+    await service.completeSession(session.id, 'web');
+
+    const replayed = await service.releaseSession(session.id, 'mobile');
+
+    expect(replayed.status).toBe('completed');
+  });
+
+  it('refuses to release a session another surface has claimed for payment', async () => {
+    const { service, store, inventory } = setup();
+    const session = await service.createSession('listing_1');
+    store.casUpdate(session.id, 'active', (current) => ({
+      ...current,
+      status: 'pending_payment',
+    }));
+
+    await expect(service.releaseSession(session.id, 'mobile')).rejects.toThrow(ConflictError);
+    await expect(inventory.getHoldStatus('listing_1')).resolves.toMatchObject({ held: true });
+  });
 });

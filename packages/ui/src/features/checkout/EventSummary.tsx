@@ -1,4 +1,4 @@
-import { View } from 'react-native';
+import { Text as RNText, View } from 'react-native';
 
 import { Text } from '../../atoms/Text';
 import { useTheme } from '../../theme';
@@ -39,7 +39,16 @@ export function EventSummary({
 
   return (
     <View testID={testID} style={{ gap: theme.space[1], flex: 1 }}>
-      <Text variant="title">{presentation.artist}</Text>
+      <RNText
+        style={{
+          fontSize: theme.fontSize.base,
+          fontWeight: theme.fontWeight.bold,
+          lineHeight: 22,
+          color: theme.text,
+        }}
+      >
+        {presentation.artist}
+      </RNText>
       <Text variant="muted">{presentation.datetimeLabel}</Text>
       <Text variant="body">{seatParts.join(' · ')}</Text>
       <Text variant="muted">{presentation.venue}</Text>

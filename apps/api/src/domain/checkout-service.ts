@@ -153,6 +153,26 @@ export class CheckoutService {
     return failed as CheckoutSession;
   }
 
+  /**
+   * Fan abandoned checkout (e.g. mobile back). Drop the inventory hold so the
+   * listing is selectable again, and expire the session as hold_released.
+   */
+  async releaseSession(id: string, surface: CheckoutSurface): Promise<CheckoutSession> {
+    const session = this.mustGet(id);
+    // Sold inventory stays unavailable; never unwind a finished order.
+    if (session.status === 'completed') return session;
+    // Mid-charge on another surface — releasing would race the payment claim.
+    if (session.status === 'pending_payment') throw new ConflictError(id);
+
+    await this.inventory.releaseHold(session.listingId);
+
+    if (session.status === 'expired') return session;
+
+    const expired = this.expireNow(session, 'hold_released');
+    this.events.emit({ name: 'session_released', sessionId: id, surface });
+    return expired;
+  }
+
   private mustGet(id: string): CheckoutSession {
     const session = this.store.get(id);
     if (!session) throw new SessionNotFoundError(id);

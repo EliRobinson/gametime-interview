@@ -1,3 +1,19 @@
+# Notes about the demo
+
+- Mobile share/copy hands the fan a web checkout URL so they can resume in a
+  browser. I did not implement the reverse (web → native deep link handoff) —
+  that gets awkward quickly in a short demo (scheme handling, Expo Go vs
+  installed builds, and what to do when the app is not installed).
+- I also wanted to pressure-test a quickly built React Native demo alongside
+  shared UI and a monorepo with multiple apps. This started from a GitHub
+  template I maintain, with a decent amount of cleanup so the shared packages
+  actually show code reuse between the React Native app and the web app.
+- The core sharing/resume design came together quickly; I spent extra time on
+  presentation so the demo feels attractive and demonstrates mobile ↔ web
+  parity, not just a working handoff.
+
+---
+
 # RN + Web Template
 
 One codebase that ships to iOS, Android, and web, backed by a fully

@@ -9,9 +9,11 @@ export const CHECKOUT_COPY = {
   retry: 'TRY AGAIN',
   retrying: 'RETRYING…',
   shareTickets: 'Share tickets',
-  shareTicketsHint: 'Copy a link to resume this checkout on web or in the app.',
+  shareTicketsHint: 'Copy a link to resume this checkout in any browser.',
   copyWebLink: 'Copy web link',
   copyMobileLink: 'Copy app link',
+  /** Shown before abandoning an active hold (browser back / logo / unload). */
+  leaveLockWarning: 'Leaving this page will remove the lock on the ticket',
   priceUpdatedPrefix: 'Price updated to',
   contactLabel: 'Contact',
   /** Static demo email — not auth-backed. */

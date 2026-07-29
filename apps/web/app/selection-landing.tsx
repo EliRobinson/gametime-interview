@@ -64,7 +64,14 @@ export function SelectionLanding() {
   );
 
   return (
-    <main style={{ minHeight: 'calc(100vh - 56px)' }}>
+    <main
+      style={{
+        height: 'calc(100vh - 56px)',
+        display: 'flex',
+        flexDirection: 'column',
+        overflow: 'hidden',
+      }}
+    >
       <SelectionScreen
         view={view}
         loading={loading}

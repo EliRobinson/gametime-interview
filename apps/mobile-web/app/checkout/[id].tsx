@@ -11,10 +11,10 @@ import {
   mapCheckoutPresentation,
   PriceBreakdown,
   priceUpdatedNotice,
+  ShareTickets,
   SuperDealBanner,
   ThemeProvider,
   TicketDeliveryRow,
-  TicketProtectionCard,
   UrgencyBanner,
   viewFromErrorCode,
   viewFromSession,
@@ -22,7 +22,15 @@ import {
 import { trpcErrorCode } from '@repo/utils';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Pressable, SafeAreaView, ScrollView, Share, Text as RNText, View } from 'react-native';
+import {
+  Platform,
+  Pressable,
+  SafeAreaView,
+  ScrollView,
+  Share,
+  Text as RNText,
+  View,
+} from 'react-native';
 
 import { trpc } from '@/lib/trpc-client';
 
@@ -132,11 +140,24 @@ export default function CheckoutScreen() {
   );
 
   const onShare = useCallback(async (payload: { webUrl: string; mobileUrl: string }) => {
-    await Share.share({
-      message: `Resume checkout:\n${payload.webUrl}\nApp: ${payload.mobileUrl}`,
-      url: payload.webUrl,
-    });
+    // iOS treats message + url as two share items ("2 Links"). Pass only `url`
+    // there; Android ignores `url` and needs the link in `message`.
+    await Share.share(
+      Platform.OS === 'ios' ? { url: payload.webUrl } : { message: payload.webUrl },
+    );
   }, []);
+
+  const onBack = useCallback(async () => {
+    // Best-effort: free the listing even if the network call fails, then leave.
+    if (sessionId) {
+      try {
+        await trpc.checkout.release.mutate({ sessionId, surface: SURFACE });
+      } catch {
+        // Fan is leaving either way — don't block navigation on release errors.
+      }
+    }
+    router.back();
+  }, [router, sessionId]);
 
   const session = sessionFromView(view);
   const presentation = session ? mapCheckoutPresentation(session, { viewKind: view.kind }) : null;
@@ -162,7 +183,9 @@ export default function CheckoutScreen() {
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Go back"
-            onPress={() => router.back()}
+            onPress={() => {
+              void onBack();
+            }}
             hitSlop={8}
             testID="checkout-back"
           >
@@ -212,16 +235,12 @@ export default function CheckoutScreen() {
               contentContainerStyle={{
                 paddingHorizontal: spacePx[4],
                 paddingTop: spacePx[4],
-                paddingBottom: spacePx[6],
+                paddingBottom: spacePx[8],
                 gap: spacePx[4],
               }}
             >
-              <View style={{ flexDirection: 'row', gap: spacePx[3], alignItems: 'flex-start' }}>
-                <View style={{ width: 72 }}>
-                  <CheckoutStadiumMap bubble={presentation.mapBubble} />
-                </View>
-                <EventSummary presentation={presentation} variant="mobile" />
-              </View>
+              <CheckoutStadiumMap bubble={presentation.mapBubble} />
+              <EventSummary presentation={presentation} variant="mobile" />
 
               <PriceBreakdown
                 presentation={presentation}
@@ -234,7 +253,13 @@ export default function CheckoutScreen() {
 
               {presentation.isSuperDeal ? <SuperDealBanner /> : null}
 
-              {presentation.showDecorativeChrome ? <TicketProtectionCard /> : null}
+              {showStickyActions && shareUrls ? (
+                <ShareTickets
+                  webUrl={shareUrls.shareWebUrl}
+                  mobileUrl={shareUrls.shareMobileUrl}
+                  onShare={onShare}
+                />
+              ) : null}
 
               {!showStickyActions ? (
                 <CheckoutCard
@@ -272,9 +297,7 @@ export default function CheckoutScreen() {
                     busy={busy}
                     onComplete={completePurchase}
                     onConfirmPrice={confirmNewPrice}
-                    shareWebUrl={shareUrls?.shareWebUrl}
-                    shareMobileUrl={shareUrls?.shareMobileUrl}
-                    onShare={onShare}
+                    showShare={false}
                   />
                 </View>
               </View>

@@ -12,6 +12,7 @@ import type { ThemeName } from '../../theme';
 import { ThemeProvider, useTheme } from '../../theme';
 import { CHECKOUT_COPY } from './checkout.copy';
 import type { CheckoutView } from './checkout.view-model';
+import { ShareTickets } from './ShareTickets';
 
 type CheckoutCardProps = {
   view: CheckoutView;
@@ -24,6 +25,11 @@ type CheckoutCardProps = {
   shareWebUrl?: string;
   shareMobileUrl?: string;
   onShare?: (payload: { webUrl: string; mobileUrl: string }) => void;
+  /**
+   * When false, omit Share even if URLs are provided — e.g. mobile sticky footer
+   * keeps only the CTA while Share lives in the scroll stack.
+   */
+  showShare?: boolean;
 };
 
 /**
@@ -39,6 +45,7 @@ export function CheckoutCard({
   shareWebUrl,
   shareMobileUrl,
   onShare,
+  showShare = true,
 }: CheckoutCardProps) {
   return (
     <ThemeProvider theme={theme}>
@@ -50,6 +57,7 @@ export function CheckoutCard({
         shareWebUrl={shareWebUrl}
         shareMobileUrl={shareMobileUrl}
         onShare={onShare}
+        showShare={showShare}
       />
     </ThemeProvider>
   );
@@ -63,10 +71,11 @@ function CheckoutCardBody({
   shareWebUrl,
   shareMobileUrl,
   onShare,
+  showShare = true,
 }: Omit<CheckoutCardProps, 'theme'>) {
   const theme = useTheme();
   const shareControls =
-    shareWebUrl && shareMobileUrl ? (
+    showShare && shareWebUrl && shareMobileUrl ? (
       <ShareTickets webUrl={shareWebUrl} mobileUrl={shareMobileUrl} onShare={onShare} />
     ) : null;
 
@@ -161,37 +170,6 @@ function CheckoutCardBody({
     case 'error':
       return <Panel title={CHECKOUT_COPY.errorTitle} body={view.message} />;
   }
-}
-
-function ShareTickets({
-  webUrl,
-  mobileUrl,
-  onShare,
-}: {
-  webUrl: string;
-  mobileUrl: string;
-  onShare?: (payload: { webUrl: string; mobileUrl: string }) => void;
-}) {
-  const theme = useTheme();
-
-  return (
-    <View style={{ gap: theme.space[2] }} testID="share-tickets">
-      <Text variant="muted">{CHECKOUT_COPY.shareTicketsHint}</Text>
-      <Button
-        testID="share-tickets-button"
-        variant="secondary"
-        onPress={() => onShare?.({ webUrl, mobileUrl })}
-      >
-        {CHECKOUT_COPY.shareTickets}
-      </Button>
-      <Text variant="muted" testID="share-web-url">
-        {webUrl}
-      </Text>
-      <Text variant="muted" testID="share-mobile-url">
-        {mobileUrl}
-      </Text>
-    </View>
-  );
 }
 
 function formatPriceChangedBody(acknowledgedPrice: number, newPriceCents?: number): string {

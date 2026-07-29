@@ -1,6 +1,11 @@
 import type { CheckoutSession } from '@repo/api-contracts';
 import type { CheckoutView } from '@repo/ui/server';
-import { CHECKOUT_COPY, mapCheckoutPresentation, viewFromSession } from '@repo/ui/server';
+import {
+  CHECKOUT_COPY,
+  mapCheckoutPresentation,
+  stadiumMapImageSrcSet,
+  viewFromSession,
+} from '@repo/ui/server';
 
 import { statusLabel } from '#web/format';
 
@@ -14,18 +19,19 @@ export function OrderSummary({ session }: { session: CheckoutSession }) {
   const viewKind = viewFromSession(session).kind as CheckoutView['kind'];
   const presentation = mapCheckoutPresentation(session, { viewKind });
   const seatNote = presentation.seatCount !== null ? ` · ${presentation.seatCount} seats` : '';
+  const stadiumImage = stadiumMapImageSrcSet();
 
   return (
     <aside style={styles.summaryAside} aria-label="Order summary">
       <div style={styles.summaryCard}>
         <div style={styles.map} data-testid="checkout-stadium-map">
-          <div style={styles.bowl} aria-hidden>
-            <div style={styles.bowlOval}>
-              <div style={styles.field}>
-                <div style={styles.stage} />
-              </div>
-            </div>
-          </div>
+          <img
+            src={stadiumImage.src}
+            srcSet={stadiumImage.srcSet}
+            sizes="(max-width: 800px) 100vw, 360px"
+            alt=""
+            style={styles.mapImage}
+          />
           {presentation.mapBubble ? (
             <span
               data-testid="checkout-map-bubble"
@@ -36,6 +42,10 @@ export function OrderSummary({ session }: { session: CheckoutSession }) {
                 backgroundColor: presentation.mapBubble.isSuperDeal
                   ? 'var(--color-accent)'
                   : 'var(--color-cta)',
+                // Accent green fails WCAG with light glyphs (~2:1); dark ink clears AAA.
+                color: presentation.mapBubble.isSuperDeal
+                  ? 'var(--color-canvas)'
+                  : 'var(--color-on-dark)',
               }}
             >
               {presentation.mapBubble.isSuperDeal ? '★' : '●'}

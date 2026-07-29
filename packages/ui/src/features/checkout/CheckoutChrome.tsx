@@ -1,5 +1,5 @@
 import { colors } from '@repo/tokens';
-import { View } from 'react-native';
+import { Text as RNText, View } from 'react-native';
 
 import { Text } from '../../atoms/Text';
 import { useTheme } from '../../theme';
@@ -39,6 +39,7 @@ export function TicketDeliveryRow({ testID = 'ticket-delivery-row' }: TicketDeli
   return (
     <View
       testID={testID}
+      accessibilityRole="summary"
       style={{
         flexDirection: 'row',
         justifyContent: 'space-between',
@@ -50,8 +51,26 @@ export function TicketDeliveryRow({ testID = 'ticket-delivery-row' }: TicketDeli
         borderColor: colors.border,
       }}
     >
-      <Text variant="body">{CHECKOUT_COPY.ticketDeliveryLabel}</Text>
-      <Text variant="muted">{CHECKOUT_COPY.contactEmail}</Text>
+      <View style={{ flex: 1, gap: theme.space[1] }}>
+        <RNText
+          style={{
+            fontSize: theme.fontSize.base,
+            fontWeight: theme.fontWeight.bold,
+            lineHeight: 22,
+            color: theme.text,
+          }}
+        >
+          {CHECKOUT_COPY.ticketDeliveryLabel}
+        </RNText>
+        <Text variant="muted">{CHECKOUT_COPY.contactEmail}</Text>
+      </View>
+      <RNText
+        accessibilityElementsHidden
+        importantForAccessibility="no"
+        style={{ color: theme.muted, fontSize: theme.fontSize['2xl'] }}
+      >
+        ›
+      </RNText>
     </View>
   );
 }
@@ -61,12 +80,26 @@ type CheckoutTermsProps = {
 };
 
 export function CheckoutTerms({ testID = 'checkout-terms' }: CheckoutTermsProps) {
+  const theme = useTheme();
+
   return (
-    <Text variant="muted" testID={testID}>
+    <RNText
+      testID={testID}
+      style={{
+        color: theme.muted,
+        fontSize: theme.fontSize.sm,
+        lineHeight: 20,
+        textAlign: 'center',
+      }}
+    >
       {CHECKOUT_COPY.termsPrefix}
-      {CHECKOUT_COPY.termsOfUse}
+      <RNText style={{ color: colors.link, textDecorationLine: 'underline' }}>
+        {CHECKOUT_COPY.termsOfUse}
+      </RNText>
       {CHECKOUT_COPY.termsAnd}
-      {CHECKOUT_COPY.privacyPolicy}
-    </Text>
+      <RNText style={{ color: colors.link, textDecorationLine: 'underline' }}>
+        {CHECKOUT_COPY.privacyPolicy}
+      </RNText>
+    </RNText>
   );
 }

@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import type { StyleProp, ViewStyle } from 'react-native';
 import { ScrollView, View } from 'react-native';
 
 import { Button } from '../../atoms/Button';
@@ -7,7 +8,7 @@ import { Text } from '../../atoms/Text';
 import type { ThemeName } from '../../theme';
 import { ThemeProvider, useTheme } from '../../theme';
 import { ListingCard } from './ListingCard';
-import { ListingDetail } from './ListingDetail';
+import { ListingDetail, SelectionEventHeader } from './ListingDetail';
 import { LISTINGS_COPY } from './listings.copy';
 import type { ListingRowView, SelectionViewModel } from './listings.view-model';
 import { ListingsMap } from './ListingsMap';
@@ -90,9 +91,10 @@ function SelectionScreenBody({
     );
   }
 
-  const detail = (
+  const eventHeader = <SelectionEventHeader event={view.event} />;
+
+  const selectionDock = (
     <ListingDetail
-      event={view.event}
       listing={selectedListing}
       busy={busy}
       createError={createError}
@@ -108,6 +110,8 @@ function SelectionScreenBody({
     />
   );
 
+  const inlineContinue = layout === 'stacked' ? { busy, createError, onContinue } : undefined;
+
   const cards = (
     <View style={{ gap: theme.space[3] }}>
       {view.listings.map((listing) => (
@@ -116,6 +120,7 @@ function SelectionScreenBody({
           listing={listing}
           selected={listing.listingId === selectedListingId}
           onSelect={setSelectedListingId}
+          inlineContinue={inlineContinue}
         />
       ))}
     </View>
@@ -123,39 +128,92 @@ function SelectionScreenBody({
 
   const canvas = isDark ? '#0C0C0D' : '#F5F5F5';
 
+  // RN Web may omit the default View stylesheet; set display explicitly so flex layouts work.
+  const flexColumn: StyleProp<ViewStyle> = {
+    display: 'flex',
+    flexDirection: 'column',
+  };
+
+  // Mobile: map stays fixed for seat orientation; selected card expands inline
+  // with Continue so the list keeps the remaining viewport (no sticky dock).
   if (layout === 'stacked') {
     return (
-      <ScrollView
+      <View
         testID="selection-screen"
-        style={{ flex: 1, backgroundColor: canvas }}
-        contentContainerStyle={{ gap: theme.space[4], padding: theme.space[4] }}
+        style={[
+          flexColumn,
+          {
+            flex: 1,
+            backgroundColor: canvas,
+            padding: theme.space[4],
+            gap: theme.space[3],
+            minHeight: 0,
+          },
+        ]}
       >
-        {detail}
-        <View style={{ minHeight: 260 }}>{map}</View>
-        {cards}
-      </ScrollView>
+        {eventHeader}
+        <View style={{ height: 220, flexShrink: 0, display: 'flex' }}>{map}</View>
+        <ScrollView
+          style={{ flex: 1, minHeight: 0 }}
+          contentContainerStyle={{ gap: theme.space[3], paddingBottom: theme.space[4] }}
+        >
+          {cards}
+        </ScrollView>
+      </View>
     );
   }
 
+  // Viewport-locked split: left scrolls independently; map fills remaining
+  // height and never grows with listing/detail content.
   return (
     <View
       testID="selection-screen"
       style={{
+        display: 'flex',
         flex: 1,
         flexDirection: 'row',
+        alignItems: 'stretch',
         backgroundColor: canvas,
         gap: theme.space[4],
         padding: theme.space[4],
+        minHeight: 0,
+        overflow: 'hidden',
       }}
     >
-      <ScrollView
-        style={{ width: 360, maxWidth: '38%' }}
-        contentContainerStyle={{ gap: theme.space[4] }}
+      <View
+        style={[
+          flexColumn,
+          {
+            width: 360,
+            maxWidth: '38%',
+            flexShrink: 0,
+            gap: theme.space[3],
+            minHeight: 0,
+            alignSelf: 'stretch',
+            overflow: 'hidden',
+          },
+        ]}
       >
-        {detail}
-        {cards}
-      </ScrollView>
-      <View style={{ flex: 1 }}>{map}</View>
+        {eventHeader}
+        <ScrollView
+          style={{ flex: 1, minHeight: 0 }}
+          contentContainerStyle={{ gap: theme.space[3] }}
+        >
+          {cards}
+        </ScrollView>
+        {selectionDock}
+      </View>
+      <View
+        style={{
+          display: 'flex',
+          flex: 1,
+          minHeight: 0,
+          minWidth: 0,
+          alignSelf: 'stretch',
+        }}
+      >
+        {map}
+      </View>
     </View>
   );
 }

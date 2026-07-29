@@ -15,6 +15,11 @@ export {
   viewFromErrorCode,
   viewFromSession,
 } from './features/checkout/mapCheckoutView.util';
+export {
+  STADIUM_MAP_WIDTHS,
+  stadiumMapImageSrcSet,
+  stadiumMapImageUrl,
+} from './features/checkout/stadiumMapImage.util';
 export { LISTINGS_COPY } from './features/listings/listings.copy';
 export { DEMO_EVENT, LISTING_FIXTURES } from './features/listings/listings.fixtures';
 export type {

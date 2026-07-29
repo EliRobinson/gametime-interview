@@ -1,5 +1,5 @@
 import type { CheckoutSession } from '@repo/api-contracts';
-import { CHECKOUT_COPY, mapCheckoutPresentation } from '@repo/ui';
+import { CHECKOUT_COPY, mapCheckoutPresentation } from '@repo/ui/server';
 
 import { resumeSession } from '#web/resume-session';
 

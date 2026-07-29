@@ -1,6 +1,6 @@
 import type { CheckoutSession } from '@repo/api-contracts';
-import type { CheckoutView } from '@repo/ui';
-import { CHECKOUT_COPY, mapCheckoutPresentation, viewFromSession } from '@repo/ui';
+import type { CheckoutView } from '@repo/ui/server';
+import { CHECKOUT_COPY, mapCheckoutPresentation, viewFromSession } from '@repo/ui/server';
 
 import { statusLabel } from '#web/format';
 

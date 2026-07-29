@@ -24,6 +24,8 @@ Restyled web and mobile checkout to match Gametime mocks (visual shell only — 
 - Mobile: light stacked shell, show-details price toggle, sticky urgency + terms + CTA
 - Tests updated for new structure; tokens/UI/web/mobile checkout suites green
 
-## Non-goals (unchanged)
+## Follow-up (same session)
 
-Real payments, promo/protection purchase, auth email, domain/API changes, pixel-perfect visual regression.
+**Bug:** SSR `page.tsx` / `order-summary.tsx` imported from `@repo/ui` barrel → pulled `SelectionScreen` (`useState`) into a Server Component → Next 500.
+
+**Fix:** `@repo/ui/server` entry exporting only pure copy/fixtures/mappers; SSR imports that path. Jest maps the subpath for ts-jest.

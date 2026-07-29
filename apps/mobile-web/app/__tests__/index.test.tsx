@@ -1,41 +1,68 @@
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { fireEvent, render, screen } from '@testing-library/react-native';
-import type { ReactElement } from 'react';
-
-import { getTrpcClientConfig, trpc } from '@/lib/trpc';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 
 import HomeScreen from '../index';
 
-// HomeScreen fires a real tRPC query on mount. There's no API running in
-// this test, and letting the request actually hit the network can hang
-// the process far longer than a real ECONNREFUSED would take.
+const mockPush = jest.fn();
+const mockRefetch = jest.fn();
+
+jest.mock('expo-router', () => ({
+  useRouter: () => ({ push: mockPush }),
+}));
+
+jest.mock('@/lib/trpc', () => ({
+  trpc: {
+    listings: {
+      list: {
+        useQuery: () => ({
+          data: {
+            listings: [{ listingId: 'listing_1', priceCents: 15400, available: true }],
+          },
+          isLoading: false,
+          isError: false,
+          isSuccess: true,
+          refetch: mockRefetch,
+        }),
+      },
+    },
+  },
+}));
+
+jest.mock('../../src/lib/trpc-client', () => ({
+  trpc: {
+    checkout: {
+      create: { mutate: jest.fn() },
+    },
+  },
+}));
+
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const { trpc: vanillaTrpc } = require('../../src/lib/trpc-client') as {
+  trpc: { checkout: { create: { mutate: jest.Mock } } };
+};
+
 beforeEach(() => {
-  global.fetch = jest.fn(() => Promise.reject(new Error('network disabled in tests')));
+  mockPush.mockReset();
+  mockRefetch.mockReset();
+  vanillaTrpc.checkout.create.mutate.mockReset();
 });
 
-function renderWithProviders(ui: ReactElement) {
-  // Retries disabled: this render doesn't have a live API to hit, and
-  // react-query's retry backoff would otherwise keep Jest's process alive
-  // well past the test finishing.
-  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  const trpcClient = trpc.createClient(getTrpcClientConfig());
-
-  return render(
-    <trpc.Provider client={trpcClient} queryClient={queryClient}>
-      <QueryClientProvider client={queryClient}>{ui}</QueryClientProvider>
-    </trpc.Provider>,
-  );
-}
-
-// Component tests run once and pass identically whether this screen
-// eventually renders on iOS, Android, or the web build.
 describe('HomeScreen', () => {
-  it('increments the counter on tap', () => {
-    renderWithProviders(<HomeScreen />);
+  it('renders listings and navigates after Continue creates a session', async () => {
+    vanillaTrpc.checkout.create.mutate.mockResolvedValue({
+      id: 'sess_mobile',
+      listingId: 'listing_1',
+    });
 
-    expect(screen.getByText('Count: 0')).toBeTruthy();
+    render(<HomeScreen />);
 
-    fireEvent.press(screen.getByTestId('increment-button'));
-    expect(screen.getByText('Count: 1')).toBeTruthy();
+    expect(screen.getByTestId('listing-card-listing_1')).toBeTruthy();
+
+    fireEvent.press(screen.getByTestId('listing-card-listing_1'));
+    fireEvent.press(screen.getByTestId('listing-continue'));
+
+    await waitFor(() =>
+      expect(vanillaTrpc.checkout.create.mutate).toHaveBeenCalledWith({ listingId: 'listing_1' }),
+    );
+    expect(mockPush).toHaveBeenCalledWith('/checkout/sess_mobile');
   });
 });

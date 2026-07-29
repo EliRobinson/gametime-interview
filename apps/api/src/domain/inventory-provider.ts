@@ -3,10 +3,23 @@ export interface InventoryHoldStatus {
   currentPrice: number;
 }
 
+export interface ListingAvailabilityRow {
+  listingId: string;
+  priceCents: number;
+  available: boolean;
+}
+
 export interface InventoryProvider {
   getHoldStatus(listingId: string): Promise<InventoryHoldStatus>;
   placeHold(listingId: string): Promise<{ price: number }>;
   releaseHold(listingId: string): Promise<void>;
+  listListings(): Promise<ListingAvailabilityRow[]>;
+}
+
+export class ListingAlreadyHeldError extends Error {
+  constructor(listingId: string) {
+    super(`Listing already held: ${listingId}`);
+  }
 }
 
 export class FakeInventoryProvider implements InventoryProvider {
@@ -29,6 +42,7 @@ export class FakeInventoryProvider implements InventoryProvider {
   async placeHold(listingId: string): Promise<{ price: number }> {
     const price = this.currentPrice(listingId);
     if (price === undefined) throw new Error(`Unknown listing: ${listingId}`);
+    if (this.held.has(listingId)) throw new ListingAlreadyHeldError(listingId);
     this.held.add(listingId);
     return { price };
   }
@@ -42,6 +56,17 @@ export class FakeInventoryProvider implements InventoryProvider {
 
   async releaseHold(listingId: string): Promise<void> {
     this.held.delete(listingId);
+  }
+
+  async listListings(): Promise<ListingAvailabilityRow[]> {
+    return [...this.basePrices.keys()].map((listingId) => {
+      const priceCents = this.currentPrice(listingId) ?? 0;
+      return {
+        listingId,
+        priceCents,
+        available: !this.held.has(listingId),
+      };
+    });
   }
 
   private currentPrice(listingId: string): number | undefined {

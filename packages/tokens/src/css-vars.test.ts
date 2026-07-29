@@ -11,5 +11,7 @@ describe('cssVariables', () => {
     expect(cssVariables).toContain(`--color-canvas: ${colors.canvas}`);
     expect(cssVariables).toContain(`--color-cta: ${colors.cta}`);
     expect(cssVariables).toContain(`--color-text: ${colors.text}`);
+    expect(cssVariables).toContain(`--color-guarantee: ${colors.guarantee}`);
+    expect(cssVariables).toContain(`--color-link: ${colors.link}`);
   });
 });

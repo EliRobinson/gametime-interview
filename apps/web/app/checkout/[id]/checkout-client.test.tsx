@@ -8,6 +8,7 @@ jest.mock('../../../src/trpc-client', () => ({
     checkout: {
       complete: { mutate: jest.fn() },
       confirmPrice: { mutate: jest.fn() },
+      release: { mutate: jest.fn() },
     },
   },
 }));
@@ -18,6 +19,7 @@ const { trpc } = require('../../../src/trpc-client') as {
     checkout: {
       complete: { mutate: jest.Mock };
       confirmPrice: { mutate: jest.Mock };
+      release: { mutate: jest.Mock };
     };
   };
 };
@@ -41,12 +43,22 @@ function trpcError(code: string, message = 'nope'): Error & { data: { code: stri
 beforeEach(() => {
   trpc.checkout.complete.mutate.mockReset();
   trpc.checkout.confirmPrice.mutate.mockReset();
+  trpc.checkout.release.mutate.mockReset();
+  trpc.checkout.release.mutate.mockResolvedValue({
+    ...baseSession,
+    status: 'expired',
+    expiryReason: 'hold_released',
+  });
+});
+
+afterEach(() => {
+  jest.restoreAllMocks();
 });
 
 describe('CheckoutClient', () => {
-  it('renders the acknowledged price for an active session', () => {
+  it('renders the continue CTA for an active session', () => {
     render(<CheckoutClient initialSession={baseSession} />);
-    expect(screen.getByText(/\$42\.00/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /continue/i })).toBeInTheDocument();
   });
 
   it('shows a price-change banner when the live price differs from the acknowledged price', () => {
@@ -122,7 +134,7 @@ describe('CheckoutClient', () => {
     fireEvent.click(screen.getByRole('button', { name: /confirm new price/i }));
 
     await waitFor(() => expect(screen.getByRole('button', { name: /continue/i })).toBeEnabled());
-    expect(screen.getByTestId('acknowledged-price')).toHaveTextContent('$50.00');
+    expect(screen.getByTestId('price-notice')).toHaveTextContent(/\$50\.00/);
     expect(trpc.checkout.confirmPrice.mutate).toHaveBeenCalledWith({
       sessionId: 'sess_1',
       surface: 'web',
@@ -156,5 +168,139 @@ describe('CheckoutClient', () => {
     await waitFor(() =>
       expect(screen.getByText(/listing no longer available/i)).toBeInTheDocument(),
     );
+  });
+
+  it('exposes Share tickets for an active session without rendering raw URLs', () => {
+    render(<CheckoutClient initialSession={baseSession} />);
+
+    expect(screen.getByRole('button', { name: /share tickets/i })).toBeInTheDocument();
+    expect(screen.queryByText(/http:\/\/localhost:3001\/checkout\//)).not.toBeInTheDocument();
+    expect(screen.queryByText(/mobileweb:\/\/checkout\//)).not.toBeInTheDocument();
+  });
+
+  it('hides share for a completed session', () => {
+    render(<CheckoutClient initialSession={{ ...baseSession, status: 'completed' }} />);
+
+    expect(screen.queryByRole('button', { name: /share tickets/i })).not.toBeInTheDocument();
+  });
+
+  describe('leaving checkout with an active hold', () => {
+    const leaveMessage = /leaving this page will remove the lock on the ticket/i;
+
+    function renderWithHomeLink(session: CheckoutSession = baseSession) {
+      return render(
+        <>
+          <a href="/">Gametime home</a>
+          <CheckoutClient initialSession={session} />
+        </>,
+      );
+    }
+
+    it('prompts, releases the hold, then navigates when the fan confirms the logo link', async () => {
+      const confirm = jest.spyOn(window, 'confirm').mockReturnValue(true);
+      const assign = jest.fn();
+      Object.defineProperty(window, 'location', {
+        configurable: true,
+        value: {
+          ...window.location,
+          assign,
+          href: 'http://localhost/checkout/sess_1',
+          pathname: '/checkout/sess_1',
+          origin: 'http://localhost',
+        },
+      });
+
+      renderWithHomeLink();
+      fireEvent.click(screen.getByRole('link', { name: /gametime home/i }));
+
+      expect(confirm).toHaveBeenCalledWith(expect.stringMatching(leaveMessage));
+      await waitFor(() =>
+        expect(trpc.checkout.release.mutate).toHaveBeenCalledWith({
+          sessionId: 'sess_1',
+          surface: 'web',
+        }),
+      );
+      await waitFor(() => expect(assign).toHaveBeenCalledWith('http://localhost/'));
+    });
+
+    it('keeps the hold and stays put when the fan cancels the leave prompt', async () => {
+      jest.spyOn(window, 'confirm').mockReturnValue(false);
+      const assign = jest.fn();
+      Object.defineProperty(window, 'location', {
+        configurable: true,
+        value: {
+          ...window.location,
+          assign,
+          href: 'http://localhost/checkout/sess_1',
+          pathname: '/checkout/sess_1',
+          origin: 'http://localhost',
+        },
+      });
+
+      renderWithHomeLink();
+      fireEvent.click(screen.getByRole('link', { name: /gametime home/i }));
+
+      expect(trpc.checkout.release.mutate).not.toHaveBeenCalled();
+      expect(assign).not.toHaveBeenCalled();
+    });
+
+    it('still navigates after confirm when release fails', async () => {
+      jest.spyOn(window, 'confirm').mockReturnValue(true);
+      trpc.checkout.release.mutate.mockRejectedValue(new Error('offline'));
+      const assign = jest.fn();
+      Object.defineProperty(window, 'location', {
+        configurable: true,
+        value: {
+          ...window.location,
+          assign,
+          href: 'http://localhost/checkout/sess_1',
+          pathname: '/checkout/sess_1',
+          origin: 'http://localhost',
+        },
+      });
+
+      renderWithHomeLink();
+      fireEvent.click(screen.getByRole('link', { name: /gametime home/i }));
+
+      await waitFor(() => expect(assign).toHaveBeenCalledWith('http://localhost/'));
+    });
+
+    it('prompts and releases when the fan confirms browser back', async () => {
+      jest.spyOn(window, 'confirm').mockReturnValue(true);
+      const historyBack = jest.spyOn(window.history, 'back').mockImplementation(() => undefined);
+
+      renderWithHomeLink();
+      fireEvent.popState(window);
+
+      expect(window.confirm).toHaveBeenCalledWith(expect.stringMatching(leaveMessage));
+      await waitFor(() =>
+        expect(trpc.checkout.release.mutate).toHaveBeenCalledWith({
+          sessionId: 'sess_1',
+          surface: 'web',
+        }),
+      );
+      await waitFor(() => expect(historyBack).toHaveBeenCalled());
+    });
+
+    it('does not prompt or release for a completed session', () => {
+      jest.spyOn(window, 'confirm').mockReturnValue(true);
+      const assign = jest.fn();
+      Object.defineProperty(window, 'location', {
+        configurable: true,
+        value: {
+          ...window.location,
+          assign,
+          href: 'http://localhost/checkout/sess_1',
+          pathname: '/checkout/sess_1',
+          origin: 'http://localhost',
+        },
+      });
+
+      renderWithHomeLink({ ...baseSession, status: 'completed' });
+      fireEvent.click(screen.getByRole('link', { name: /gametime home/i }));
+
+      expect(window.confirm).not.toHaveBeenCalled();
+      expect(trpc.checkout.release.mutate).not.toHaveBeenCalled();
+    });
   });
 });

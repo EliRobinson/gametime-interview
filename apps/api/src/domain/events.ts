@@ -5,6 +5,7 @@ export type CheckoutEventName =
   | 'session_resumed'
   | 'price_reconfirmed'
   | 'session_expired'
+  | 'session_released'
   | 'session_completed'
   | 'session_failed';
 

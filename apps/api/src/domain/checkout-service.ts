@@ -3,6 +3,7 @@ import { nanoid } from 'nanoid';
 
 import type { EventLog } from './events';
 import type { InventoryProvider } from './inventory-provider';
+import { ListingAlreadyHeldError } from './inventory-provider';
 import type { PaymentProvider } from './payment-provider';
 import type { SessionStore } from './session-store';
 
@@ -44,7 +45,20 @@ export class CheckoutService {
   ) {}
 
   async createSession(listingId: string): Promise<CheckoutSession> {
-    const { price } = await this.inventory.placeHold(listingId);
+    let price: number;
+    try {
+      ({ price } = await this.inventory.placeHold(listingId));
+    } catch (error) {
+      // Hold exclusivity and unknown ids both surface as "listing unavailable"
+      // so the landing Continue path can stay on the selection screen.
+      if (
+        error instanceof ListingAlreadyHeldError ||
+        (error instanceof Error && /Unknown listing/.test(error.message))
+      ) {
+        throw new ListingUnavailableError(listingId);
+      }
+      throw error;
+    }
     const now = new Date();
     const session: CheckoutSession = {
       id: nanoid(),
@@ -137,6 +151,26 @@ export class CheckoutService {
     }));
     this.events.emit({ name: 'session_failed', sessionId: id, surface });
     return failed as CheckoutSession;
+  }
+
+  /**
+   * Fan abandoned checkout (e.g. mobile back). Drop the inventory hold so the
+   * listing is selectable again, and expire the session as hold_released.
+   */
+  async releaseSession(id: string, surface: CheckoutSurface): Promise<CheckoutSession> {
+    const session = this.mustGet(id);
+    // Sold inventory stays unavailable; never unwind a finished order.
+    if (session.status === 'completed') return session;
+    // Mid-charge on another surface — releasing would race the payment claim.
+    if (session.status === 'pending_payment') throw new ConflictError(id);
+
+    await this.inventory.releaseHold(session.listingId);
+
+    if (session.status === 'expired') return session;
+
+    const expired = this.expireNow(session, 'hold_released');
+    this.events.emit({ name: 'session_released', sessionId: id, surface });
+    return expired;
   }
 
   private mustGet(id: string): CheckoutSession {

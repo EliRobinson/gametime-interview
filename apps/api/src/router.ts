@@ -2,6 +2,7 @@ import { createUserInput, userSchema } from '@repo/api-contracts';
 import { z } from 'zod';
 
 import { checkoutRouter } from './routers/checkout';
+import { listingsRouter } from './routers/listings';
 import { publicProcedure, router } from './trpc';
 
 export const appRouter = router({
@@ -17,6 +18,7 @@ export const appRouter = router({
   }),
 
   checkout: checkoutRouter,
+  listings: listingsRouter,
 });
 
 export type AppRouter = typeof appRouter;

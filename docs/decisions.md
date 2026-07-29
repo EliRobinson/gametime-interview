@@ -256,3 +256,20 @@ deliberate scope decision, not a bug fix.
 carry the current price, and let the client render "confirm $X and complete" as a single
 action that calls `confirmPrice` then `complete` in sequence — still two API calls, but one
 fan-facing tap.
+
+## 14. Share tickets uses session id as the capability (no auth on resume links)
+
+**What we did:** Checkout surfaces a **Share tickets** control that copies/shares a web URL
+(`{origin}/checkout/{sessionId}`) plus a mobile deep link (`mobileweb://checkout/{sessionId}`).
+Possession of the id is enough to resume — unchanged from the original continuity model.
+
+**Why:** Matches the locked design for this pass (cross-surface takeover without an
+"open the other app on this device" strip) and keeps share UX shared via optional
+`CheckoutCard` props while apps own clipboard / `Share.share`.
+
+**Production cost of deferring this:** Anyone with the link can view/resume the session
+until it expires or completes. Links are guessable only insofar as session ids are; we
+already use `nanoid`, but there's no short-lived signed token or recipient binding.
+
+**What we'd do instead:** Signed, expiring resume tokens (or magic-link auth) scoped to the
+session, with optional surface binding and revoke-on-complete.

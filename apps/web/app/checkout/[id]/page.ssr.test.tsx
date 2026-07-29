@@ -53,7 +53,6 @@ describe('checkout page server render', () => {
     const html = await renderPage('sess_ssr');
 
     expect(html).toContain('listing_7');
-    expect(html).toContain('sess_ssr');
     expect(html).toContain('$42.00');
     expect(html).toMatch(/Active/i);
     // No loading placeholder is ever emitted on the server.
@@ -63,6 +62,22 @@ describe('checkout page server render', () => {
     expect(url).toContain('/trpc/checkout.resume');
     expect(init.cache).toBe('no-store');
     expect(JSON.parse(String(init.body))).toEqual({ sessionId: 'sess_ssr', surface: 'web' });
+  });
+
+  it('renders fixture-driven Super Deal when the listing has one', async () => {
+    stubFetch(200, {
+      result: { data: { ...session, listingId: 'listing_1', acknowledgedPrice: 15400 } },
+    });
+
+    const html = await renderPage('sess_ssr');
+
+    expect(html).toContain('You found a Super Deal!');
+    expect(html).toContain('$154.00');
+    expect(html).toContain('Ed Sheeran');
+    expect(html).toContain('Upper 309, Row JJ');
+    expect(html).toContain('maps.gametime.co/v2/centurylink_field/edsheeran/edsheeran-8.png');
+    expect(html).toContain('width=768');
+    expect(html).toContain('1280w');
   });
 
   it('renders an expired session in its terminal state without client JS', async () => {

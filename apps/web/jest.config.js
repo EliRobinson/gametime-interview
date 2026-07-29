@@ -18,13 +18,17 @@ module.exports = {
           lib: ['ESNext', 'DOM'],
           types: ['node', 'jest', '@testing-library/jest-dom'],
           baseUrl: '.',
-          paths: { '#web/*': ['./src/*'] },
+          paths: {
+            '#web/*': ['./src/*'],
+            '@repo/ui/server': ['../../packages/ui/src/server.ts'],
+          },
         },
       },
     ],
   },
   moduleNameMapper: {
     '^#web/(.*)$': '<rootDir>/src/$1',
+    '^@repo/ui/server$': '<rootDir>/../../packages/ui/src/server.ts',
     '^react-native$': 'react-native-web',
   },
   transformIgnorePatterns: [

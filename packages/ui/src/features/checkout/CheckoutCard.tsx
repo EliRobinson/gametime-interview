@@ -8,27 +8,44 @@ import { Notice } from '../../atoms/Notice';
 import { Spinner } from '../../atoms/Spinner';
 import { Text } from '../../atoms/Text';
 import { Panel } from '../../molecules/Panel';
-import { PriceRow } from '../../molecules/PriceRow';
 import type { ThemeName } from '../../theme';
 import { ThemeProvider, useTheme } from '../../theme';
 import { CHECKOUT_COPY } from './checkout.copy';
 import type { CheckoutView } from './checkout.view-model';
+import { ShareTickets } from './ShareTickets';
 
 type CheckoutCardProps = {
   view: CheckoutView;
   busy: boolean;
   onComplete: (session: CheckoutSession) => void;
   onConfirmPrice: (session: CheckoutSession) => void;
-  /** Defaults to light (web). Pass `dark` for Gametime mobile canvas. */
+  /** Defaults to light (web). Pass `dark` only when intentionally theming dark. */
   theme?: ThemeName;
+  /** When set, shows Share tickets for resumable sessions. */
+  shareWebUrl?: string;
+  shareMobileUrl?: string;
+  onShare?: (payload: { webUrl: string; mobileUrl: string }) => void;
+  /**
+   * When false, omit Share even if URLs are provided — e.g. mobile sticky footer
+   * keeps only the CTA while Share lives in the scroll stack.
+   */
+  showShare?: boolean;
 };
 
+/**
+ * Continuity state + primary actions. Page chrome (summary, deal, guarantee)
+ * is composed by each app around this card.
+ */
 export function CheckoutCard({
   view,
   busy,
   onComplete,
   onConfirmPrice,
   theme = 'light',
+  shareWebUrl,
+  shareMobileUrl,
+  onShare,
+  showShare = true,
 }: CheckoutCardProps) {
   return (
     <ThemeProvider theme={theme}>
@@ -37,6 +54,10 @@ export function CheckoutCard({
         busy={busy}
         onComplete={onComplete}
         onConfirmPrice={onConfirmPrice}
+        shareWebUrl={shareWebUrl}
+        shareMobileUrl={shareMobileUrl}
+        onShare={onShare}
+        showShare={showShare}
       />
     </ThemeProvider>
   );
@@ -47,8 +68,16 @@ function CheckoutCardBody({
   busy,
   onComplete,
   onConfirmPrice,
+  shareWebUrl,
+  shareMobileUrl,
+  onShare,
+  showShare = true,
 }: Omit<CheckoutCardProps, 'theme'>) {
   const theme = useTheme();
+  const shareControls =
+    showShare && shareWebUrl && shareMobileUrl ? (
+      <ShareTickets webUrl={shareWebUrl} mobileUrl={shareMobileUrl} onShare={onShare} />
+    ) : null;
 
   switch (view.kind) {
     case 'loading':
@@ -57,9 +86,6 @@ function CheckoutCardBody({
     case 'ready':
       return (
         <View style={{ gap: theme.space[4] }}>
-          <Text variant="eyebrow">{CHECKOUT_COPY.resumedEyebrow}</Text>
-          <Text variant="title">{CHECKOUT_COPY.finishTitle}</Text>
-          <PriceRow amountCents={view.session.acknowledgedPrice} testID="acknowledged-price" />
           {view.notice ? <Notice testID="price-notice">{view.notice}</Notice> : null}
           <Button
             onPress={() => onComplete(view.session)}
@@ -69,6 +95,7 @@ function CheckoutCardBody({
           >
             {busy ? CHECKOUT_COPY.completing : CHECKOUT_COPY.completePurchase}
           </Button>
+          {shareControls}
         </View>
       );
 
@@ -96,6 +123,7 @@ function CheckoutCardBody({
           >
             {busy ? CHECKOUT_COPY.retrying : CHECKOUT_COPY.retry}
           </Button>
+          {shareControls}
         </Panel>
       );
 
@@ -116,6 +144,7 @@ function CheckoutCardBody({
           >
             {busy ? CHECKOUT_COPY.checkingPrice : CHECKOUT_COPY.confirmNewPrice}
           </Button>
+          {shareControls}
         </View>
       );
 

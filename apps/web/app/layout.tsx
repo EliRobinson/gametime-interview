@@ -2,11 +2,12 @@ import './globals.css';
 
 import { cssVariables } from '@repo/tokens';
 import type { Metadata } from 'next';
+import Link from 'next/link';
 import type { ReactNode } from 'react';
 
 export const metadata: Metadata = {
-  title: 'Checkout · Gametime',
-  description: 'Resume your checkout on any device.',
+  title: 'Tickets · Gametime',
+  description: 'Select seats and resume checkout on any device.',
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {
@@ -27,13 +28,23 @@ export default function RootLayout({ children }: { children: ReactNode }) {
           style={{
             backgroundColor: 'var(--color-canvas)',
             color: 'var(--color-on-dark)',
-            display: 'flex',
+            display: 'grid',
+            gridTemplateColumns: '1fr auto 1fr',
             alignItems: 'center',
-            justifyContent: 'space-between',
             padding: '0.85rem 1.5rem',
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+          <Link
+            href="/"
+            aria-label="Gametime home"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.35rem',
+              color: 'inherit',
+              textDecoration: 'none',
+            }}
+          >
             <span
               style={{
                 fontWeight: 800,
@@ -50,8 +61,9 @@ export default function RootLayout({ children }: { children: ReactNode }) {
             >
               ›
             </span>
-          </div>
+          </Link>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <span style={{ fontWeight: 600, fontSize: '0.95rem' }}>Checkout</span>
             <span
               aria-hidden
               style={{
@@ -69,9 +81,8 @@ export default function RootLayout({ children }: { children: ReactNode }) {
             >
               ✓
             </span>
-            <span style={{ fontWeight: 600, fontSize: '0.95rem' }}>Checkout</span>
           </div>
-          <span style={{ width: 88 }} aria-hidden />
+          <span aria-hidden />
         </header>
         {children}
       </body>

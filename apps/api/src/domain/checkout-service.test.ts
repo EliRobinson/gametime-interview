@@ -234,6 +234,7 @@ describe('CheckoutService', () => {
     const replayed = await service.releaseSession(session.id, 'mobile');
 
     expect(replayed.status).toBe('completed');
+    await expect(inventory.getHoldStatus('listing_1')).resolves.toMatchObject({ held: true });
   });
 
   it('refuses to release a session another surface has claimed for payment', async () => {

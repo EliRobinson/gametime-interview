@@ -26,6 +26,8 @@ describe('mapCheckoutPresentation', () => {
         isSuperDeal: true,
         urgencyTicketsLeft: 4,
         hasMapBubble: true,
+        totalCents: 30800,
+        formattedTotal: '$308.00',
       },
     },
     {
@@ -33,11 +35,13 @@ describe('mapCheckoutPresentation', () => {
       listingId: 'listing_3',
       expected: {
         section: '118',
-        row: '8',
+        row: '8 · 10s price demo',
         seatCount: 3,
         isSuperDeal: false,
         urgencyTicketsLeft: null,
         hasMapBubble: true,
+        totalCents: 46200,
+        formattedTotal: '$462.00',
       },
     },
     {
@@ -50,6 +54,8 @@ describe('mapCheckoutPresentation', () => {
         isSuperDeal: false,
         urgencyTicketsLeft: null,
         hasMapBubble: false,
+        totalCents: 15400,
+        formattedTotal: '$154.00',
       },
     },
   ])('$name', ({ listingId, expected }) => {
@@ -61,17 +67,35 @@ describe('mapCheckoutPresentation', () => {
     expect(presentation.isSuperDeal).toBe(expected.isSuperDeal);
     expect(presentation.urgencyTicketsLeft).toBe(expected.urgencyTicketsLeft);
     expect(presentation.mapBubble !== null).toBe(expected.hasMapBubble);
-    expect(presentation.formattedTotal).toBe('$154.00');
-    expect(presentation.totalCents).toBe(15400);
+    expect(presentation.unitPriceCents).toBe(15400);
+    expect(presentation.formattedUnitPrice).toBe('$154.00');
+    expect(presentation.formattedTotal).toBe(expected.formattedTotal);
+    expect(presentation.totalCents).toBe(expected.totalCents);
     expect(presentation.artist).toBe('Ed Sheeran');
     expect(presentation.venue).toBe('Lumen Field');
   });
 
-  it('uses acknowledgedPrice as listing total without multiplying by seat count', () => {
+  it('multiplies unit price by seat count for the order total', () => {
     const presentation = mapCheckoutPresentation(baseSession);
 
-    expect(presentation.formattedTotal).toBe('$154.00');
+    expect(presentation.formattedUnitPrice).toBe('$154.00');
     expect(presentation.seatCount).toBe(2);
+    expect(presentation.formattedTotal).toBe('$308.00');
+    expect(presentation.totalCents).toBe(30800);
+  });
+
+  it('exposes previous unit price only when provided after confirm', () => {
+    const withoutPrevious = mapCheckoutPresentation(baseSession);
+    expect(withoutPrevious.previousUnitPriceCents).toBeNull();
+    expect(withoutPrevious.formattedPreviousUnitPrice).toBeNull();
+
+    const withPrevious = mapCheckoutPresentation(
+      { ...baseSession, acknowledgedPrice: 10900 },
+      { previousUnitPriceCents: 8900 },
+    );
+    expect(withPrevious.previousUnitPriceCents).toBe(8900);
+    expect(withPrevious.formattedPreviousUnitPrice).toBe('$89.00');
+    expect(withPrevious.formattedUnitPrice).toBe('$109.00');
   });
 
   it('builds urgency label from fixture count', () => {
@@ -87,6 +111,7 @@ describe('mapCheckoutPresentation', () => {
     { viewKind: 'completed' as const, showDecorativeChrome: false },
     { viewKind: 'expired' as const, showDecorativeChrome: false },
     { viewKind: 'unavailable' as const, showDecorativeChrome: false },
+    { viewKind: 'processing' as const, showDecorativeChrome: false },
     { viewKind: 'error' as const, showDecorativeChrome: false },
   ])(
     'sets showDecorativeChrome=$showDecorativeChrome for $viewKind',

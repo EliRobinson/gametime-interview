@@ -34,19 +34,22 @@ describe('CheckoutCard', () => {
     expect(screen.queryByText(/finish your checkout/i)).toBeNull();
   });
 
-  it('shows confirm price CTA for price_changed', () => {
+  it('shows a non-actionable processing panel with no Buy CTA', () => {
     render(
       <CheckoutCard
-        view={{ kind: 'price_changed', session: activeSession }}
+        view={{
+          kind: 'processing',
+          session: { ...activeSession, status: 'pending_payment' },
+        }}
         busy={false}
         onComplete={noop}
         onConfirmPrice={noop}
       />,
     );
 
-    expect(screen.getByTestId('price-changed-banner').props.accessibilityRole).toBe('alert');
-    expect(screen.getByTestId('confirm-price-button')).toBeTruthy();
-    expect(screen.getByText(CHECKOUT_COPY.confirmNewPrice)).toBeTruthy();
+    expect(screen.getByText(CHECKOUT_COPY.processing.title)).toBeTruthy();
+    expect(screen.getByText(CHECKOUT_COPY.processing.body)).toBeTruthy();
+    expect(screen.queryByTestId('complete-button')).toBeNull();
   });
 
   it('mentions new price in price_changed banner when newPriceCents is set', () => {
@@ -158,6 +161,7 @@ describe('CheckoutCard', () => {
     expect(screen.getByTestId('share-tickets')).toBeTruthy();
     expect(screen.queryByText('http://localhost:3001/checkout/sess_1')).toBeNull();
     expect(screen.queryByText('mobileweb://checkout/sess_1')).toBeNull();
+    expect(screen.queryByTestId('open-in-app-button')).toBeNull();
     fireEvent.press(screen.getByTestId('share-tickets-button'));
     expect(onShare).toHaveBeenCalledWith({
       webUrl: 'http://localhost:3001/checkout/sess_1',

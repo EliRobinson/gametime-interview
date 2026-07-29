@@ -1,9 +1,15 @@
 # Notes about the demo
 
-- Mobile share/copy hands the fan a web checkout URL so they can resume in a
-  browser. I did not implement the reverse (web → native deep link handoff) —
-  that gets awkward quickly in a short demo (scheme handling, Expo Go vs
-  installed builds, and what to do when the app is not installed).
+- Cross-surface resume in this demo is **web ↔ web** (copy the link into another
+  tab/browser) and **mobile → web** (native share/copy hands the fan a web
+  checkout URL). I did not build a seamless **web → mobile** handoff: a browser
+  cannot detect whether an iOS/Android simulator (or Expo) is running on the
+  reviewer’s machine, and custom-scheme deep links (`mobileweb://…`) only work
+  when that OS has registered the scheme. An earlier **Open in app** control on
+  web (navigate / `window.open` to `mobileweb://…`) proved too volatile — it
+  either navigated the checkout page away or failed silently depending on the
+  browser and whether Expo had claimed the scheme — so it was removed. Use
+  `xcrun simctl openurl` (below) for local deep-link demos instead.
 - I also wanted to pressure-test a quickly built React Native demo alongside
   shared UI and a monorepo with multiple apps. This started from a GitHub
   template I maintain, with a decent amount of cleanup so the shared packages
@@ -11,6 +17,49 @@
 - The core sharing/resume design came together quickly; I spent extra time on
   presentation so the demo feels attractive and demonstrates mobile ↔ web
   parity, not just a working handoff.
+- **Why go past a “minimal UI” slice?** The prompt’s time box (~2–3 hours)
+  prefers a focused end-to-end continuity path over a broad checkout clone. I
+  still invested past that floor on purpose: a bare curl-and-JSON demo proves
+  the state machine, but a product-shaped shell (selection → checkout, shared
+  tokens/UI, Gametime-like visual hierarchy) is a better signal of how I attack
+  _complicated_ product + systems problems — domain boundaries, cross-surface
+  consistency, and reviewer-friendly UX — not only whether `resume` returns
+  `200`. Treat the polish as intentional flex, not scope creep that replaced the
+  continuity core.
+
+**Time trade-offs (kept the continuity slice honest, deferred production depth):**
+
+- In-memory session store and deterministic payment/inventory fakes — fine per
+  the prompt, zero reviewer setup, and the CAS race is still real in one
+  process. No Prisma session model, no real Stripe/inventory SDKs, no auth.
+- Surfaces discover changes by acting (resume / complete), not via push — with
+  one demo exception: **Sec 118 · Row 8 · 10s price demo** (`listing_3`) ages its _held_
+  price after 10 seconds so you can watch reconfirmation live. Catalog price
+  stays at the seed if you leave and browse again; a new session resets the
+  timer. Other failure modes (decline, sold-out) still need tests /
+  `forceOutcome` / `releaseListing`.
+- No automated create-on-web / complete-on-mobile E2E; unit tests cover the
+  state machine and conflict path, and the handoff is verified by hand.
+- Fixed 10-minute session TTL, two-tap price confirm then buy (not one-tap),
+  and share via opaque session id only — deliberate scope cuts, not unfinished
+  stubs.
+
+**Beyond the basic ask (to raise demo quality):**
+
+- Ticket landing with listing selection and a static stadium map so the flow
+  starts like a product, not a bare “create session” curl.
+- Shared design tokens + `@repo/ui` checkout/listings so web (Next SSR) and
+  native actually share components — not two parallel UIs with the same API.
+- Visual shell aligned to Gametime-style mocks (layout, hierarchy, share UX)
+  while keeping payment/promo chrome decorative and non-functional.
+- Domain write-up (`CONTEXT.md`), decision log (`docs/decisions.md`), and
+  structured instrumentation so the _why_ of the state machine is reviewable.
+
+**AI-assisted engineering trail:** session notes under [`docs/`](./docs/)
+(`session_<date>_<time>_<slug>.md`) record planning, trade-offs, and
+implementation passes with AI. They are meant to show how I use assisted
+engineering to move a product forward quickly and refine existing work — not
+as a substitute for the code or the domain docs above.
 
 ---
 
@@ -23,9 +72,12 @@ type-safe API. Use this as a GitHub template for new projects.
 
 # Checkout Continuity
 
-A fan starts checking out on one surface and finishes on another — start on
-mobile web, get the link, finish in the native app. The checkout session is
-owned by the server; each surface is just a view onto it.
+A fan starts checking out on one surface and finishes on another — typically
+**web → web** (same link in another tab) or **mobile → web** (share the web
+checkout URL). The checkout session is owned by the server; each surface is just
+a view onto it. Native deep links still work for local demos
+(`mobileweb://checkout/<id>`), but share/copy intentionally hands out the web
+URL so resume does not depend on the app already being installed.
 
 ## What was built
 
@@ -62,7 +114,9 @@ pnpm dev:mobile-web   # Expo with a real TTY (not via turbo)
 Create a session, then open it on either surface:
 
 ```bash
-# Create one (listing_1 is seeded at $42.00 in apps/api/src/context.ts)
+# Create one (listing_1 is seeded in apps/api/src/context.ts).
+# For a live price-change demo, pick "Sec 118 · Row 8 · 10s price demo" (listing_3)
+# on the landing page, wait 10s on checkout, then confirm the new price.
 curl -X POST localhost:4000/trpc/checkout.create \
   -H 'content-type: application/json' -d '{"listingId":"listing_1"}'
 
@@ -116,7 +170,10 @@ reads and writes with no `await` in between, so two same-tick callers cannot
 both win — the loser gets `CONFLICT` and the fan is told the order is being
 completed on another device. There is no time-window heuristic and no
 best-effort check. `apps/api/src/domain/checkout-service.test.ts` races two
-completions and asserts exactly one wins.
+completions and asserts exactly one wins. On the UI, `pending_payment` maps to a
+non-actionable **processing** view (no Buy CTA) — both when this surface just
+pressed Buy and when resume finds an in-flight claim — while `CONFLICT` maps to
+**claimed elsewhere**. Same “don’t buy again” outcome; different trust copy.
 
 **Instrumentation.** Every continuity-relevant transition emits a structured
 event (`session_created`, `session_resumed`, `price_reconfirmed`,

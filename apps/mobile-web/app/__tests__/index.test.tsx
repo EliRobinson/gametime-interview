@@ -4,6 +4,7 @@ import HomeScreen from '../index';
 
 const mockPush = jest.fn();
 const mockRefetch = jest.fn();
+const mockUseQuery = jest.fn();
 
 jest.mock('expo-router', () => ({
   useRouter: () => ({ push: mockPush }),
@@ -13,15 +14,7 @@ jest.mock('@/lib/trpc', () => ({
   trpc: {
     listings: {
       list: {
-        useQuery: () => ({
-          data: {
-            listings: [{ listingId: 'listing_1', priceCents: 15400, available: true }],
-          },
-          isLoading: false,
-          isError: false,
-          isSuccess: true,
-          refetch: mockRefetch,
-        }),
+        useQuery: (...args: unknown[]) => mockUseQuery(...args),
       },
     },
   },
@@ -43,10 +36,29 @@ const { trpc: vanillaTrpc } = require('../../src/lib/trpc-client') as {
 beforeEach(() => {
   mockPush.mockReset();
   mockRefetch.mockReset();
+  mockUseQuery.mockReset();
+  mockUseQuery.mockReturnValue({
+    data: {
+      listings: [{ listingId: 'listing_1', priceCents: 15400, available: true }],
+    },
+    isLoading: false,
+    isError: false,
+    isSuccess: true,
+    refetch: mockRefetch,
+  });
   vanillaTrpc.checkout.create.mutate.mockReset();
 });
 
 describe('HomeScreen', () => {
+  it('polls listings every 10 seconds for status changes', () => {
+    render(<HomeScreen />);
+
+    expect(mockUseQuery).toHaveBeenCalledWith(
+      undefined,
+      expect.objectContaining({ refetchInterval: 10_000 }),
+    );
+  });
+
   it('renders listings and navigates after Continue creates a session', async () => {
     vanillaTrpc.checkout.create.mutate.mockResolvedValue({
       id: 'sess_mobile',

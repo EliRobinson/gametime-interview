@@ -46,11 +46,25 @@ export function ListingCard({ listing, selected, onSelect, inlineContinue }: Lis
         borderColor: selected ? '#19CE85' : isDark ? '#2A2A2E' : '#DFE2E7',
       }}
     >
-      <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: theme.space[3] }}>
-        <Text variant="title">
-          Sec {listing.section} · Row {listing.row}
-        </Text>
-        <Text variant="title">{listing.formattedPrice}</Text>
+      <View
+        style={{
+          flexDirection: 'row',
+          justifyContent: 'space-between',
+          alignItems: 'flex-start',
+          gap: theme.space[3],
+        }}
+      >
+        {/* Bound the section label so long demo titles wrap instead of clipping the price. */}
+        <View style={{ flex: 1, minWidth: 0 }}>
+          <Text variant="title">
+            Sec {listing.section} · Row {listing.row}
+          </Text>
+        </View>
+        <View style={{ flexShrink: 0 }}>
+          <Text variant="title" testID={`listing-price-${listing.listingId}`}>
+            {listing.formattedPrice}
+          </Text>
+        </View>
       </View>
       <Text variant="muted">
         {listing.available

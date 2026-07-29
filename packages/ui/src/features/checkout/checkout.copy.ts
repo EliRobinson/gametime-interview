@@ -2,6 +2,10 @@ export const CHECKOUT_COPY = {
   loading: 'Finding your checkout',
   loadingSubtitle: "So you don't have to.",
   pageTitle: 'Checkout',
+  /** Visible cancel word on wide web checkout headers (chevron rendered in UI). */
+  cancelLabel: 'Cancel',
+  /** Accessible name for the cancel control (icon-only on narrow screens). */
+  cancelAriaLabel: 'Cancel purchase',
   completePurchase: 'CONTINUE',
   completing: 'CONTINUING…',
   confirmNewPrice: 'CONFIRM NEW PRICE',
@@ -9,7 +13,7 @@ export const CHECKOUT_COPY = {
   retry: 'TRY AGAIN',
   retrying: 'RETRYING…',
   shareTickets: 'Share tickets',
-  shareTicketsHint: 'Copy a link to resume this checkout in any browser.',
+  shareTicketsHint: 'Copy a web link to resume this checkout in any browser.',
   copyWebLink: 'Copy web link',
   copyMobileLink: 'Copy app link',
   /** Shown before abandoning an active hold (browser back / logo / unload). */
@@ -64,6 +68,10 @@ export const CHECKOUT_COPY = {
   unavailable: {
     title: 'Listing no longer available',
     body: 'These tickets were claimed before your purchase went through. Nothing was charged — browse similar seats instead.',
+  },
+  processing: {
+    title: 'Payment in progress',
+    body: "We're finishing your order now. This screen will update when the charge succeeds or fails — don't tap Buy again.",
   },
   claimedElsewhere: {
     title: 'Finishing on another device',

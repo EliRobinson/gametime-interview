@@ -26,14 +26,14 @@ export function PriceBreakdown({
   const seatNote = presentation.seatCount !== null ? ` · ${presentation.seatCount} seats` : '';
 
   return (
-    <View testID={testID} style={{ gap: theme.space[3] }}>
+    <View testID={testID} style={{ gap: theme.space[2] }}>
       {onToggleDetails ? (
         <View
           style={{
             flexDirection: 'row',
             alignItems: 'center',
             justifyContent: 'space-between',
-            gap: theme.space[3],
+            gap: theme.space[2],
             paddingVertical: theme.space[3],
             borderTopWidth: 1,
             borderColor: colors.border,
@@ -77,13 +77,15 @@ export function PriceBreakdown({
               flexDirection: 'row',
               justifyContent: 'space-between',
               alignItems: 'center',
+              gap: theme.space[2],
             }}
           >
             <Text variant="body">{CHECKOUT_COPY.ticketsLabel}</Text>
-            <Text variant="body" testID={onToggleDetails ? undefined : 'acknowledged-price'}>
-              {presentation.formattedTotal}
-              {seatNote}
-            </Text>
+            <TicketUnitPrice
+              presentation={presentation}
+              seatNote={seatNote}
+              showTestId={!onToggleDetails}
+            />
           </View>
 
           {showPromo && presentation.showDecorativeChrome ? (
@@ -97,6 +99,7 @@ export function PriceBreakdown({
               flexDirection: 'row',
               justifyContent: 'space-between',
               alignItems: 'center',
+              gap: theme.space[2],
             }}
           >
             <Text variant="title">{CHECKOUT_COPY.totalLabel}</Text>
@@ -106,6 +109,57 @@ export function PriceBreakdown({
           </View>
         </View>
       ) : null}
+    </View>
+  );
+}
+
+function TicketUnitPrice({
+  presentation,
+  seatNote,
+  showTestId,
+}: {
+  presentation: CheckoutPresentation;
+  seatNote: string;
+  showTestId: boolean;
+}) {
+  const theme = useTheme();
+  const hasPrevious = presentation.formattedPreviousUnitPrice !== null;
+
+  return (
+    <View
+      style={{
+        flexDirection: 'row',
+        alignItems: 'baseline',
+        gap: theme.space[1],
+        flexWrap: 'wrap',
+        justifyContent: 'flex-end',
+      }}
+      testID={showTestId ? 'acknowledged-price' : undefined}
+    >
+      {hasPrevious ? (
+        <RNText
+          testID="previous-unit-price"
+          style={{
+            fontSize: theme.fontSize.sm,
+            lineHeight: 18,
+            color: theme.muted,
+            textDecorationLine: 'line-through',
+          }}
+        >
+          {presentation.formattedPreviousUnitPrice}
+        </RNText>
+      ) : null}
+      <RNText
+        style={{
+          fontSize: theme.fontSize.base,
+          fontWeight: theme.fontWeight.normal,
+          lineHeight: 22,
+          color: theme.text,
+        }}
+      >
+        {presentation.formattedUnitPrice}
+        {seatNote}
+      </RNText>
     </View>
   );
 }

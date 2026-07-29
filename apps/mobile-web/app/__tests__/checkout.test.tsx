@@ -5,6 +5,8 @@ import { trpc } from '@/lib/trpc-client';
 
 import CheckoutScreen from '../checkout/[id]';
 
+const mockInvalidateListings = jest.fn();
+
 jest.mock('../../src/lib/trpc-client', () => ({
   trpc: {
     checkout: {
@@ -13,6 +15,18 @@ jest.mock('../../src/lib/trpc-client', () => ({
       confirmPrice: { mutate: jest.fn() },
       release: { mutate: jest.fn() },
     },
+  },
+}));
+
+jest.mock('@/lib/trpc', () => ({
+  trpc: {
+    useUtils: () => ({
+      listings: {
+        list: {
+          invalidate: mockInvalidateListings,
+        },
+      },
+    }),
   },
 }));
 
@@ -51,6 +65,8 @@ function trpcError(code: string, message = code) {
 beforeEach(() => {
   mockParams = { id: 'sess_1' };
   mockBack.mockReset();
+  mockInvalidateListings.mockReset();
+  mockInvalidateListings.mockResolvedValue(undefined);
   resume.mockReset();
   complete.mockReset();
   confirmPrice.mockReset();
@@ -63,6 +79,15 @@ beforeEach(() => {
 });
 
 describe('CheckoutScreen', () => {
+  it('shows processing (no Buy CTA) when resume returns pending_payment', async () => {
+    resume.mockResolvedValue({ ...activeSession, status: 'pending_payment' });
+
+    render(<CheckoutScreen />);
+
+    await waitFor(() => expect(screen.getByText(/payment in progress/i)).toBeTruthy());
+    expect(screen.queryByTestId('complete-button')).toBeNull();
+  });
+
   it('shows a loading state, then the active checkout state once resumed', async () => {
     // Keep resume pending until after the first paint so we can assert loading —
     // mockResolvedValue settles inside RTL's act() and skips straight to ready.
@@ -81,7 +106,7 @@ describe('CheckoutScreen', () => {
     resolveResume(activeSession);
 
     await waitFor(() => expect(screen.getByTestId('complete-button')).toBeTruthy());
-    expect(screen.getByText(/\$42\.00/)).toBeTruthy();
+    expect(screen.getByText(/\$84\.00/)).toBeTruthy();
   });
 
   it('resumes reporting the mobile surface so the event log records the handoff', async () => {
@@ -165,9 +190,15 @@ describe('CheckoutScreen', () => {
     // Acknowledging the new price surfaces it and hands the fan back the
     // Complete purchase decision — it must not auto-charge.
     await waitFor(() => expect(screen.getByTestId('acknowledged-price')).toBeTruthy());
-    expect(String(screen.getByTestId('acknowledged-price').props.children)).toMatch(/\$55\.00/);
+    expect(String(screen.getByTestId('acknowledged-price').props.children)).toMatch(/\$110\.00/);
     expect(screen.getByTestId('complete-button')).toBeTruthy();
     expect(complete).toHaveBeenCalledTimes(1);
+
+    // Confirm expands the breakdown so the strike-through old price is obvious.
+    await waitFor(() => expect(screen.getByTestId('previous-unit-price')).toBeTruthy());
+    expect(screen.getByLabelText(/hide details/i)).toBeTruthy();
+    expect(screen.getByText('$42.00')).toBeTruthy();
+    expect(screen.getByText(/\$55\.00 · 2 seats/)).toBeTruthy();
   });
 
   it('tells the fan the order is being completed on another device on CONFLICT', async () => {
@@ -241,6 +272,7 @@ describe('CheckoutScreen', () => {
     await waitFor(() =>
       expect(release).toHaveBeenCalledWith({ sessionId: 'sess_1', surface: 'mobile' }),
     );
+    expect(mockInvalidateListings).toHaveBeenCalled();
     expect(mockBack).toHaveBeenCalled();
   });
 
@@ -254,5 +286,6 @@ describe('CheckoutScreen', () => {
     fireEvent.press(screen.getByTestId('checkout-back'));
 
     await waitFor(() => expect(mockBack).toHaveBeenCalled());
+    expect(mockInvalidateListings).toHaveBeenCalled();
   });
 });

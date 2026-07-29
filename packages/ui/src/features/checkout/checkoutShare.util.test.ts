@@ -1,4 +1,8 @@
-import { buildCheckoutShareUrls, isShareableSession } from './checkoutShare.util';
+import {
+  buildCheckoutShareUrls,
+  buildNativeSharePayload,
+  isShareableSession,
+} from './checkoutShare.util';
 
 describe('checkoutShare', () => {
   it.each([
@@ -27,6 +31,13 @@ describe('checkoutShare', () => {
     expect(buildCheckoutShareUrls('sess_abc', 'http://localhost:3001/')).toEqual({
       shareWebUrl: 'http://localhost:3001/checkout/sess_abc',
       shareMobileUrl: 'mobileweb://checkout/sess_abc',
+    });
+  });
+
+  it('puts the web URL in message only so iOS Copy pastes a link (not empty clipboard)', () => {
+    // iOS Share with only `url` leaves Copy empty; message+url shows "2 Links".
+    expect(buildNativeSharePayload('http://localhost:3001/checkout/sess_abc')).toEqual({
+      message: 'http://localhost:3001/checkout/sess_abc',
     });
   });
 });

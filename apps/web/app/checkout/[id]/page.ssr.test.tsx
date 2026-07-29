@@ -73,6 +73,7 @@ describe('checkout page server render', () => {
 
     expect(html).toContain('You found a Super Deal!');
     expect(html).toContain('$154.00');
+    expect(html).toContain('$308.00');
     expect(html).toContain('Ed Sheeran');
     expect(html).toContain('Upper 309, Row JJ');
     expect(html).toContain('maps.gametime.co/v2/centurylink_field/edsheeran/edsheeran-8.png');

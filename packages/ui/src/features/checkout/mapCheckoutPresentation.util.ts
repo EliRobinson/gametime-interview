@@ -10,9 +10,16 @@ const TERMINAL_KINDS = new Set<CheckoutView['kind']>([
   'expired',
   'unavailable',
   'claimed_elsewhere',
+  'processing',
   'not_found',
   'error',
 ]);
+
+export type MapCheckoutPresentationOptions = {
+  viewKind?: CheckoutView['kind'];
+  /** Set only after the fan confirms a price bump — enables Tickets strikethrough. */
+  previousUnitPriceCents?: number;
+};
 
 /**
  * Joins session commerce state with listing/event fixtures for checkout chrome.
@@ -20,7 +27,7 @@ const TERMINAL_KINDS = new Set<CheckoutView['kind']>([
  */
 export function mapCheckoutPresentation(
   session: CheckoutSession,
-  options?: { viewKind?: CheckoutView['kind'] },
+  options?: MapCheckoutPresentationOptions,
 ): CheckoutPresentation {
   const fixture = LISTING_FIXTURES[session.listingId];
   const viewKind = options?.viewKind;
@@ -37,13 +44,23 @@ export function mapCheckoutPresentation(
 
   const urgencyTicketsLeft = fixture?.urgencyTicketsLeft ?? null;
 
+  const unitPriceCents = session.acknowledgedPrice;
+  const quantity = seatCount ?? 1;
+  const totalCents = unitPriceCents * quantity;
+  const previousUnitPriceCents = options?.previousUnitPriceCents ?? null;
+
   return {
     sessionId: session.id,
     listingId: session.listingId,
     status: session.status,
     expiresAt: session.expiresAt,
-    totalCents: session.acknowledgedPrice,
-    formattedTotal: formatCurrency(session.acknowledgedPrice),
+    unitPriceCents,
+    formattedUnitPrice: formatCurrency(unitPriceCents),
+    previousUnitPriceCents,
+    formattedPreviousUnitPrice:
+      previousUnitPriceCents !== null ? formatCurrency(previousUnitPriceCents) : null,
+    totalCents,
+    formattedTotal: formatCurrency(totalCents),
     artist: DEMO_EVENT.artist,
     venue: DEMO_EVENT.venue,
     city: DEMO_EVENT.city,

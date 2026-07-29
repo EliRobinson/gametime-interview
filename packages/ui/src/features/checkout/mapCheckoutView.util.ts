@@ -10,6 +10,7 @@ export type { CheckoutView } from './checkout.view-model';
 export function viewFromSession(
   session: CheckoutSession,
   notice: string | null = null,
+  previousUnitPriceCents?: number,
 ): CheckoutView {
   if (session.status === 'expired') {
     return session.expiryReason === 'hold_released' ? { kind: 'unavailable' } : { kind: 'expired' };
@@ -20,7 +21,10 @@ export function viewFromSession(
   if (session.status === 'failed') {
     return { kind: 'failed', session };
   }
-  return { kind: 'ready', session, notice };
+  if (session.status === 'pending_payment') {
+    return { kind: 'processing', session };
+  }
+  return { kind: 'ready', session, notice, previousUnitPriceCents };
 }
 
 export function viewFromErrorCode(code: string | null, session?: CheckoutSession): CheckoutView {

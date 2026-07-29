@@ -1,11 +1,14 @@
 import type { CheckoutSession } from '@repo/api-contracts';
+import { DEMO_PRICE_CHANGE, msUntilDemoPriceBump } from '@repo/api-contracts';
 import { colors, spacePx } from '@repo/tokens';
 import type { CheckoutView } from '@repo/ui';
 import {
   buildCheckoutShareUrls,
+  buildNativeSharePayload,
   CheckoutCard,
   CheckoutStadiumMap,
   CheckoutTerms,
+  DemoPriceCountdown,
   EventSummary,
   isShareableSession,
   mapCheckoutPresentation,
@@ -22,16 +25,9 @@ import {
 import { trpcErrorCode } from '@repo/utils';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import {
-  Platform,
-  Pressable,
-  SafeAreaView,
-  ScrollView,
-  Share,
-  Text as RNText,
-  View,
-} from 'react-native';
+import { Pressable, SafeAreaView, ScrollView, Share, Text as RNText, View } from 'react-native';
 
+import { trpc as listingsApi } from '@/lib/trpc';
 import { trpc } from '@/lib/trpc-client';
 
 // Every call from this screen reports where the fan actually is, so the API's
@@ -39,6 +35,7 @@ import { trpc } from '@/lib/trpc-client';
 // session.
 const SURFACE = 'mobile' as const;
 
+// Normally we'd store this in a `env.local` file. For the demo, we hardcode it here.
 const WEB_ORIGIN = process.env.EXPO_PUBLIC_WEB_ORIGIN ?? 'http://localhost:3001';
 
 function sessionFromView(view: CheckoutView): CheckoutSession | null {
@@ -47,6 +44,7 @@ function sessionFromView(view: CheckoutView): CheckoutSession | null {
 
 export default function CheckoutScreen() {
   const router = useRouter();
+  const listingsUtils = listingsApi.useUtils();
   const params = useLocalSearchParams();
   const rawId = params.id;
   const sessionId = Array.isArray(rawId) ? rawId[0] : rawId;
@@ -91,6 +89,30 @@ export default function CheckoutScreen() {
       });
   }, [isCurrent, sessionId]);
 
+  // Demo listing: after the demo window on an active hold, show price-change recovery.
+  useEffect(() => {
+    if (view.kind !== 'ready') return;
+    const delayMs = msUntilDemoPriceBump(view.session);
+    if (delayMs === null) return;
+
+    const trackedSessionId = view.session.id;
+    const timer = setTimeout(() => {
+      setView((current) => {
+        if (current.kind !== 'ready' || current.session.id !== trackedSessionId) return current;
+        if (current.session.acknowledgedPrice === DEMO_PRICE_CHANGE.heldPriceAfterBumpCents) {
+          return current;
+        }
+        return {
+          kind: 'price_changed',
+          session: current.session,
+          newPriceCents: DEMO_PRICE_CHANGE.heldPriceAfterBumpCents,
+        };
+      });
+    }, delayMs);
+
+    return () => clearTimeout(timer);
+  }, [view]);
+
   const shareSession = (() => {
     const session = sessionFromView(view);
     return session && isShareableSession(session) ? session : null;
@@ -106,6 +128,8 @@ export default function CheckoutScreen() {
       if (!sessionId || busy) return;
       const token = requestRef.current;
       setBusy(true);
+      // Claim UI immediately — never leave Buy enabled while pending_payment.
+      setView({ kind: 'processing', session: { ...session, status: 'pending_payment' } });
       try {
         const next = await trpc.checkout.complete.mutate({ sessionId, surface: SURFACE });
         if (isCurrent(token)) setView(viewFromSession(next));
@@ -126,9 +150,17 @@ export default function CheckoutScreen() {
       try {
         const next = await trpc.checkout.confirmPrice.mutate({ sessionId, surface: SURFACE });
         // Acknowledging shows the fan the new number and hands the purchase
-        // decision back to them — it deliberately does not charge.
+        // decision back to them — it deliberately does not charge. Expand the
+        // breakdown so the strike-through previous price is visible without a tap.
         if (isCurrent(token)) {
-          setView(viewFromSession(next, priceUpdatedNotice(next.acknowledgedPrice)));
+          setDetailsExpanded(true);
+          setView(
+            viewFromSession(
+              next,
+              priceUpdatedNotice(next.acknowledgedPrice),
+              session.acknowledgedPrice,
+            ),
+          );
         }
       } catch (error) {
         if (isCurrent(token)) setView(viewFromErrorCode(trpcErrorCode(error), session));
@@ -140,11 +172,9 @@ export default function CheckoutScreen() {
   );
 
   const onShare = useCallback(async (payload: { webUrl: string; mobileUrl: string }) => {
-    // iOS treats message + url as two share items ("2 Links"). Pass only `url`
-    // there; Android ignores `url` and needs the link in `message`.
-    await Share.share(
-      Platform.OS === 'ios' ? { url: payload.webUrl } : { message: payload.webUrl },
-    );
+    // Message-only: iOS Copy pastes the URL; message+url showed "2 Links";
+    // url-only left the clipboard empty on Copy.
+    await Share.share(buildNativeSharePayload(payload.webUrl));
   }, []);
 
   const onBack = useCallback(async () => {
@@ -156,14 +186,20 @@ export default function CheckoutScreen() {
         // Fan is leaving either way — don't block navigation on release errors.
       }
     }
+    // Don't wait for the 10s poll — the listing we unlocked should show fresh now.
+    void listingsUtils.listings.list.invalidate();
     router.back();
-  }, [router, sessionId]);
+  }, [listingsUtils.listings.list, router, sessionId]);
 
   const session = sessionFromView(view);
-  const presentation = session ? mapCheckoutPresentation(session, { viewKind: view.kind }) : null;
+  const previousUnitPriceCents = view.kind === 'ready' ? view.previousUnitPriceCents : undefined;
+  const presentation = session
+    ? mapCheckoutPresentation(session, { viewKind: view.kind, previousUnitPriceCents })
+    : null;
   const showShell = view.kind !== 'loading' && presentation !== null;
   const showStickyActions =
     view.kind === 'ready' || view.kind === 'price_changed' || view.kind === 'failed';
+  const showDemoCountdown = view.kind === 'ready' && msUntilDemoPriceBump(view.session) !== null;
 
   return (
     <ThemeProvider theme="light">
@@ -195,6 +231,12 @@ export default function CheckoutScreen() {
             <RNText style={{ fontSize: 17, fontWeight: '600', color: colors.text }}>
               Checkout
             </RNText>
+            {showDemoCountdown ? (
+              <DemoPriceCountdown
+                listingId={view.session.listingId}
+                createdAt={view.session.createdAt}
+              />
+            ) : null}
             <View
               accessibilityLabel="Secure checkout"
               style={{
@@ -288,7 +330,7 @@ export default function CheckoutScreen() {
                   <UrgencyBanner label={presentation.urgencyLabel} variant="footer" />
                 ) : null}
                 <View
-                  style={{ paddingHorizontal: spacePx[4], paddingTop: spacePx[3], gap: spacePx[3] }}
+                  style={{ paddingHorizontal: spacePx[4], paddingTop: spacePx[3], gap: spacePx[2] }}
                 >
                   <CheckoutTerms />
                   <CheckoutCard

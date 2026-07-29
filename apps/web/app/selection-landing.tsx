@@ -13,6 +13,8 @@ async function fetchListings(): Promise<ListingAvailability[]> {
   return result.listings;
 }
 
+const LISTINGS_POLL_MS = 10_000;
+
 export function SelectionLanding() {
   const router = useRouter();
   const [view, setView] = useState<SelectionViewModel | null>(null);
@@ -21,22 +23,35 @@ export function SelectionLanding() {
   const [busy, setBusy] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    setLoadError(false);
+  const load = useCallback(async ({ showLoading }: { showLoading: boolean }) => {
+    if (showLoading) {
+      setLoading(true);
+      setLoadError(false);
+    }
     try {
       const listings = await fetchListings();
       setView(mapListingsView(listings));
+      setLoadError(false);
     } catch {
-      setView(null);
-      setLoadError(true);
+      if (showLoading) {
+        setView(null);
+        setLoadError(true);
+      }
+      // Background polls keep the last good list on transient failures.
     } finally {
-      setLoading(false);
+      if (showLoading) setLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    void load();
+    void load({ showLoading: true });
+  }, [load]);
+
+  useEffect(() => {
+    const intervalId = setInterval(() => {
+      void load({ showLoading: false });
+    }, LISTINGS_POLL_MS);
+    return () => clearInterval(intervalId);
   }, [load]);
 
   const onContinue = useCallback(
@@ -50,17 +65,12 @@ export function SelectionLanding() {
       } catch {
         setCreateError(LISTINGS_COPY.createError);
         // Refresh availability — the listing may now be held by someone else.
-        try {
-          const listings = await fetchListings();
-          setView(mapListingsView(listings));
-        } catch {
-          // Keep create error visible even if refresh fails.
-        }
+        await load({ showLoading: false });
       } finally {
         setBusy(false);
       }
     },
-    [busy, router],
+    [busy, load, router],
   );
 
   return (
@@ -78,7 +88,7 @@ export function SelectionLanding() {
         loadError={loadError}
         busy={busy}
         createError={createError}
-        onRetry={load}
+        onRetry={() => void load({ showLoading: true })}
         onContinue={onContinue}
         theme="light"
         layout="sidebar"

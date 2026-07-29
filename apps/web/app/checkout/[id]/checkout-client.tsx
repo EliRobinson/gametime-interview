@@ -1,12 +1,15 @@
 'use client';
 
 import type { CheckoutSession } from '@repo/api-contracts';
+import { DEMO_PRICE_CHANGE, msUntilDemoPriceBump } from '@repo/api-contracts';
 import type { CheckoutView } from '@repo/ui';
 import {
   buildCheckoutShareUrls,
   CHECKOUT_COPY,
   CheckoutCard,
+  DemoPriceCountdown,
   isShareableSession,
+  mapCheckoutPresentation,
   priceUpdatedNotice,
   viewFromErrorCode,
   viewFromSession,
@@ -15,6 +18,9 @@ import { trpcErrorCode } from '@repo/utils';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { trpc } from '#web/trpc-client';
+
+import { checkoutPageStyles as styles } from './checkout-page-styles';
+import { OrderSummary } from './order-summary';
 
 export type CheckoutClientProps = {
   /**
@@ -60,6 +66,10 @@ function isLeavingCheckout(href: string, currentPathname: string): boolean {
   }
 }
 
+function isDecorativeStatus(status: CheckoutSession['status']): boolean {
+  return status === 'created' || status === 'active' || status === 'failed';
+}
+
 export function CheckoutClient({ initialSession, priceChangedTo }: CheckoutClientProps) {
   const [view, setView] = useState<CheckoutView>(() => initialView(initialSession, priceChangedTo));
   const [busy, setBusy] = useState(false);
@@ -76,6 +86,42 @@ export function CheckoutClient({ initialSession, priceChangedTo }: CheckoutClien
 
   const heldSession = sessionFromView(view);
   const holdSessionId = heldSession && isShareableSession(heldSession) ? heldSession.id : null;
+
+  const summarySession = sessionFromView(view) ?? initialSession;
+  const previousUnitPriceCents = view.kind === 'ready' ? view.previousUnitPriceCents : undefined;
+  const presentation = mapCheckoutPresentation(summarySession, {
+    viewKind: view.kind === 'loading' ? undefined : view.kind,
+    previousUnitPriceCents,
+  });
+  const showDecorative =
+    isDecorativeStatus(summarySession.status) && presentation.showDecorativeChrome;
+  const showDemoCountdown = view.kind === 'ready' && msUntilDemoPriceBump(view.session) !== null;
+
+  // Demo listing: surface the price-change UI when the hold ages past the demo
+  // window so a reviewer can watch reconfirmation without calling setPrice by hand.
+  useEffect(() => {
+    if (view.kind !== 'ready') return;
+    const delayMs = msUntilDemoPriceBump(view.session);
+    if (delayMs === null) return;
+
+    const sessionId = view.session.id;
+    const timer = window.setTimeout(() => {
+      setView((current) => {
+        if (current.kind !== 'ready' || current.session.id !== sessionId) return current;
+        // Fan already confirmed the demo bump — don't bounce them back.
+        if (current.session.acknowledgedPrice === DEMO_PRICE_CHANGE.heldPriceAfterBumpCents) {
+          return current;
+        }
+        return {
+          kind: 'price_changed',
+          session: current.session,
+          newPriceCents: DEMO_PRICE_CHANGE.heldPriceAfterBumpCents,
+        };
+      });
+    }, delayMs);
+
+    return () => window.clearTimeout(timer);
+  }, [view]);
 
   useEffect(() => {
     if (!holdSessionId) return;
@@ -156,6 +202,9 @@ export function CheckoutClient({ initialSession, priceChangedTo }: CheckoutClien
   async function completeOrder(session: CheckoutSession) {
     if (busy) return;
     setBusy(true);
+    // Claim UI immediately — never leave Buy enabled while the server holds
+    // pending_payment (even for the brief window before the response lands).
+    setView({ kind: 'processing', session: { ...session, status: 'pending_payment' } });
     try {
       const next = await trpc.checkout.complete.mutate({ sessionId: session.id, surface: 'web' });
       setView(viewFromSession(next));
@@ -174,7 +223,13 @@ export function CheckoutClient({ initialSession, priceChangedTo }: CheckoutClien
         sessionId: session.id,
         surface: 'web',
       });
-      setView(viewFromSession(next, priceUpdatedNotice(next.acknowledgedPrice)));
+      setView(
+        viewFromSession(
+          next,
+          priceUpdatedNotice(next.acknowledgedPrice),
+          session.acknowledgedPrice,
+        ),
+      );
     } catch (error) {
       setView(viewFromErrorCode(trpcErrorCode(error), session));
     } finally {
@@ -185,40 +240,83 @@ export function CheckoutClient({ initialSession, priceChangedTo }: CheckoutClien
   async function onShare(payload: { webUrl: string; mobileUrl: string }) {
     try {
       await navigator.clipboard.writeText(payload.webUrl);
-      setShareFeedback('Link copied');
+      setShareFeedback('Link copied — open it in another browser tab to resume on web');
     } catch {
       setShareFeedback(payload.webUrl);
     }
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-      {showsTerms(view) ? (
-        <p
-          data-testid="checkout-terms"
-          style={{ margin: 0, color: 'var(--color-muted)', fontSize: 14 }}
-        >
-          {CHECKOUT_COPY.termsPrefix}
-          <span style={{ textDecoration: 'underline' }}>{CHECKOUT_COPY.termsOfUse}</span>
-          {CHECKOUT_COPY.termsAnd}
-          <span style={{ textDecoration: 'underline' }}>{CHECKOUT_COPY.privacyPolicy}</span>
-        </p>
-      ) : null}
+    <div style={styles.grid} className="checkout-grid">
+      <section style={styles.card}>
+        <div style={styles.contactRow} data-testid="checkout-contact-row">
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <p style={styles.contactLabel}>{CHECKOUT_COPY.contactLabel}</p>
+            {showDemoCountdown ? (
+              <DemoPriceCountdown
+                listingId={view.session.listingId}
+                createdAt={view.session.createdAt}
+              />
+            ) : null}
+          </div>
+          <p style={styles.contactEmail}>{CHECKOUT_COPY.contactEmail}</p>
+        </div>
 
-      <CheckoutCard
-        view={view}
-        busy={busy}
-        onComplete={completeOrder}
-        onConfirmPrice={confirmNewPrice}
-        shareWebUrl={shareUrls?.shareWebUrl}
-        shareMobileUrl={shareUrls?.shareMobileUrl}
-        onShare={onShare}
-      />
-      {shareFeedback ? (
-        <p data-testid="share-feedback" style={{ marginTop: 0, fontSize: 14 }}>
-          {shareFeedback}
-        </p>
-      ) : null}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {showsTerms(view) ? (
+            <p
+              data-testid="checkout-terms"
+              style={{ margin: 0, color: 'var(--color-muted)', fontSize: 14 }}
+            >
+              {CHECKOUT_COPY.termsPrefix}
+              <span style={{ textDecoration: 'underline' }}>{CHECKOUT_COPY.termsOfUse}</span>
+              {CHECKOUT_COPY.termsAnd}
+              <span style={{ textDecoration: 'underline' }}>{CHECKOUT_COPY.privacyPolicy}</span>
+            </p>
+          ) : null}
+
+          <CheckoutCard
+            view={view}
+            busy={busy}
+            onComplete={completeOrder}
+            onConfirmPrice={confirmNewPrice}
+            shareWebUrl={shareUrls?.shareWebUrl}
+            shareMobileUrl={shareUrls?.shareMobileUrl}
+            onShare={onShare}
+          />
+          {shareFeedback ? (
+            <p data-testid="share-feedback" style={{ marginTop: 0, fontSize: 14 }}>
+              {shareFeedback}
+            </p>
+          ) : null}
+        </div>
+
+        {showDecorative ? (
+          <div style={styles.guarantee} data-testid="guarantee-panel">
+            <div style={styles.guaranteeCopy}>
+              <p style={styles.guaranteeTitle}>{CHECKOUT_COPY.guaranteeTitle}</p>
+              {CHECKOUT_COPY.guaranteeItems.map((item) => (
+                <p key={item} style={styles.guaranteeItem}>
+                  ✓ {item}
+                </p>
+              ))}
+            </div>
+            <div style={styles.guaranteeShield} aria-hidden>
+              ✓
+            </div>
+          </div>
+        ) : null}
+      </section>
+
+      <OrderSummary session={summarySession} presentation={presentation} />
+
+      <style>{`
+        @media (max-width: 800px) {
+          .checkout-grid {
+            grid-template-columns: 1fr !important;
+          }
+        }
+      `}</style>
     </div>
   );
 }

@@ -6,10 +6,18 @@ import type { CheckoutSession } from '@repo/api-contracts';
  */
 export type CheckoutView =
   | { kind: 'loading' }
-  | { kind: 'ready'; session: CheckoutSession; notice: string | null }
+  | {
+      kind: 'ready';
+      session: CheckoutSession;
+      notice: string | null;
+      /** Prior per-ticket cents after the fan confirms a bump — drives strikethrough. */
+      previousUnitPriceCents?: number;
+    }
   | { kind: 'completed'; session: CheckoutSession }
   | { kind: 'failed'; session: CheckoutSession }
   | { kind: 'price_changed'; session: CheckoutSession; newPriceCents?: number }
+  /** Session is claimed for charge — no Buy CTA (this device or another). */
+  | { kind: 'processing'; session: CheckoutSession }
   | { kind: 'expired' }
   | { kind: 'unavailable' }
   | { kind: 'claimed_elsewhere' }
@@ -31,7 +39,16 @@ export type CheckoutPresentation = {
   listingId: string;
   status: CheckoutSession['status'];
   expiresAt: string;
-  /** Listing total in cents — same value for line item and Total. */
+  /** Per-ticket price currently acknowledged, in cents. */
+  unitPriceCents: number;
+  formattedUnitPrice: string;
+  /**
+   * Prior per-ticket cents after confirm — when set, Tickets shows strikethrough
+   * then the new unit price. Omitted while the fan is still deciding on a bump.
+   */
+  previousUnitPriceCents: number | null;
+  formattedPreviousUnitPrice: string | null;
+  /** Order total in cents: unit price × seat count (or unit price when seats unknown). */
   totalCents: number;
   formattedTotal: string;
   artist: string;

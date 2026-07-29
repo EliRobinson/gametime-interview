@@ -1,23 +1,23 @@
 import type { CheckoutSession } from '@repo/api-contracts';
-import type { CheckoutView } from '@repo/ui/server';
-import {
-  CHECKOUT_COPY,
-  mapCheckoutPresentation,
-  stadiumMapImageSrcSet,
-  viewFromSession,
-} from '@repo/ui/server';
+import type { CheckoutPresentation } from '@repo/ui/server';
+import { CHECKOUT_COPY, stadiumMapImageSrcSet } from '@repo/ui/server';
 
 import { statusLabel } from '#web/format';
 
 import { checkoutPageStyles as styles } from './checkout-page-styles';
 
 /**
- * SSR-only order summary. Stays DOM + CSS vars (not RN) so first paint works
+ * SSR-friendly order summary. Stays DOM + CSS vars (not RN) so first paint works
  * without JS; visual values still come from `@repo/tokens` via cssVariables.
+ * Callers pass a live `presentation` so client confirms can update prices.
  */
-export function OrderSummary({ session }: { session: CheckoutSession }) {
-  const viewKind = viewFromSession(session).kind as CheckoutView['kind'];
-  const presentation = mapCheckoutPresentation(session, { viewKind });
+export function OrderSummary({
+  session,
+  presentation,
+}: {
+  session: CheckoutSession;
+  presentation: CheckoutPresentation;
+}) {
   const seatNote = presentation.seatCount !== null ? ` · ${presentation.seatCount} seats` : '';
   const stadiumImage = stadiumMapImageSrcSet();
 
@@ -74,12 +74,29 @@ export function OrderSummary({ session }: { session: CheckoutSession }) {
         </div>
       ) : null}
 
-      <div style={styles.summaryCard}>
+      <div style={{ ...styles.summaryCard, gap: 'var(--space-2)' }}>
         <p style={styles.priceRow}>
           <span>{CHECKOUT_COPY.ticketsLabel}</span>
-          <span>
-            {presentation.formattedTotal}
-            {seatNote}
+          <span
+            data-testid="ssr-ticket-unit-price"
+            style={{ display: 'inline-flex', gap: 8, alignItems: 'baseline' }}
+          >
+            {presentation.formattedPreviousUnitPrice ? (
+              <span
+                data-testid="previous-unit-price"
+                style={{
+                  fontSize: '0.875rem',
+                  color: 'var(--color-muted)',
+                  textDecoration: 'line-through',
+                }}
+              >
+                {presentation.formattedPreviousUnitPrice}
+              </span>
+            ) : null}
+            <span>
+              {presentation.formattedUnitPrice}
+              {seatNote}
+            </span>
           </span>
         </p>
         {presentation.showDecorativeChrome ? (

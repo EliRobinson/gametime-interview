@@ -1,6 +1,11 @@
 import { CHECKOUT_ERROR_CODE } from '@repo/api-contracts';
 
-import { priceUpdatedNotice, viewFromErrorCode, viewFromSession } from './mapCheckoutView.util';
+import {
+  priceUpdatedNotice,
+  viewFromErrorCode,
+  viewFromResume,
+  viewFromSession,
+} from './mapCheckoutView.util';
 
 const active = {
   id: 'sess_1',
@@ -65,6 +70,36 @@ describe('viewFromErrorCode', () => {
       kind: 'price_changed',
       session: active,
     });
+  });
+});
+
+describe('viewFromResume', () => {
+  it.each([
+    {
+      name: 'matching live price stays ready',
+      livePriceCents: 4200,
+      kind: 'ready',
+    },
+    {
+      name: 'diverged live price becomes price_changed',
+      livePriceCents: 5000,
+      kind: 'price_changed',
+    },
+    {
+      name: 'null live price stays ready',
+      livePriceCents: null,
+      kind: 'ready',
+    },
+  ])('$name', ({ livePriceCents, kind }) => {
+    const view = viewFromResume(active, livePriceCents);
+    expect(view.kind).toBe(kind);
+    if (kind === 'price_changed' && view.kind === 'price_changed') {
+      expect(view.newPriceCents).toBe(5000);
+    }
+  });
+
+  it('does not override terminal session status with live price', () => {
+    expect(viewFromResume({ ...active, status: 'completed' }, 9999).kind).toBe('completed');
   });
 });
 

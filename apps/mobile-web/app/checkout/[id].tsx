@@ -1,5 +1,5 @@
 import type { CheckoutSession } from '@repo/api-contracts';
-import { DEMO_PRICE_CHANGE, msUntilDemoPriceBump } from '@repo/api-contracts';
+import { msUntilDemoPriceBump } from '@repo/api-contracts';
 import { colors, spacePx } from '@repo/tokens';
 import type { CheckoutView } from '@repo/ui';
 import {
@@ -13,14 +13,16 @@ import {
   isShareableSession,
   mapCheckoutPresentation,
   PriceBreakdown,
-  priceUpdatedNotice,
+  sessionFromView,
   ShareTickets,
+  showsCheckoutActions,
   SuperDealBanner,
   ThemeProvider,
   TicketDeliveryRow,
   UrgencyBanner,
+  useCheckoutActions,
   viewFromErrorCode,
-  viewFromSession,
+  viewFromResume,
 } from '@repo/ui';
 import { trpcErrorCode } from '@repo/utils';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -38,10 +40,6 @@ const SURFACE = 'mobile' as const;
 // Normally we'd store this in a `env.local` file. For the demo, we hardcode it here.
 const WEB_ORIGIN = process.env.EXPO_PUBLIC_WEB_ORIGIN ?? 'http://localhost:3001';
 
-function sessionFromView(view: CheckoutView): CheckoutSession | null {
-  return 'session' in view && view.session ? view.session : null;
-}
-
 export default function CheckoutScreen() {
   const router = useRouter();
   const listingsUtils = listingsApi.useUtils();
@@ -50,7 +48,6 @@ export default function CheckoutScreen() {
   const sessionId = Array.isArray(rawId) ? rawId[0] : rawId;
 
   const [view, setView] = useState<CheckoutView>({ kind: 'loading' });
-  const [busy, setBusy] = useState(false);
   const [detailsExpanded, setDetailsExpanded] = useState(false);
 
   // A resume for one id must never land on top of a later one, and nothing
@@ -65,10 +62,27 @@ export default function CheckoutScreen() {
     };
   }, []);
 
-  const isCurrent = useCallback(
-    (token: number) => mountedRef.current && token === requestRef.current,
+  const shouldApply = useCallback(() => mountedRef.current, []);
+
+  const mutations = useMemo(
+    () => ({
+      complete: (input: { sessionId: string; surface: 'mobile' | 'web' }) =>
+        trpc.checkout.complete.mutate(input),
+      confirmPrice: (input: { sessionId: string; surface: 'mobile' | 'web' }) =>
+        trpc.checkout.confirmPrice.mutate(input),
+      resume: (input: { sessionId: string; surface: 'mobile' | 'web' }) =>
+        trpc.checkout.resume.mutate(input),
+    }),
     [],
   );
+
+  const { busy, completeOrder, confirmNewPrice, refreshFromResume } = useCheckoutActions({
+    surface: SURFACE,
+    mutations,
+    setView,
+    shouldApply,
+    onConfirmPriceSuccess: () => setDetailsExpanded(true),
+  });
 
   useEffect(() => {
     if (!sessionId) {
@@ -81,37 +95,17 @@ export default function CheckoutScreen() {
 
     trpc.checkout.resume
       .mutate({ sessionId, surface: SURFACE })
-      .then((session) => {
-        if (isCurrent(token)) setView(viewFromSession(session));
+      .then((result) => {
+        if (mountedRef.current && token === requestRef.current) {
+          setView(viewFromResume(result.session, result.livePriceCents));
+        }
       })
       .catch((error: unknown) => {
-        if (isCurrent(token)) setView(viewFromErrorCode(trpcErrorCode(error)));
-      });
-  }, [isCurrent, sessionId]);
-
-  // Demo listing: after the demo window on an active hold, show price-change recovery.
-  useEffect(() => {
-    if (view.kind !== 'ready') return;
-    const delayMs = msUntilDemoPriceBump(view.session);
-    if (delayMs === null) return;
-
-    const trackedSessionId = view.session.id;
-    const timer = setTimeout(() => {
-      setView((current) => {
-        if (current.kind !== 'ready' || current.session.id !== trackedSessionId) return current;
-        if (current.session.acknowledgedPrice === DEMO_PRICE_CHANGE.heldPriceAfterBumpCents) {
-          return current;
+        if (mountedRef.current && token === requestRef.current) {
+          setView(viewFromErrorCode(trpcErrorCode(error)));
         }
-        return {
-          kind: 'price_changed',
-          session: current.session,
-          newPriceCents: DEMO_PRICE_CHANGE.heldPriceAfterBumpCents,
-        };
       });
-    }, delayMs);
-
-    return () => clearTimeout(timer);
-  }, [view]);
+  }, [sessionId]);
 
   const shareSession = (() => {
     const session = sessionFromView(view);
@@ -122,54 +116,6 @@ export default function CheckoutScreen() {
     if (!shareSession) return null;
     return buildCheckoutShareUrls(shareSession.id, WEB_ORIGIN);
   }, [shareSession]);
-
-  const completePurchase = useCallback(
-    async (session: CheckoutSession) => {
-      if (!sessionId || busy) return;
-      const token = requestRef.current;
-      setBusy(true);
-      // Claim UI immediately — never leave Buy enabled while pending_payment.
-      setView({ kind: 'processing', session: { ...session, status: 'pending_payment' } });
-      try {
-        const next = await trpc.checkout.complete.mutate({ sessionId, surface: SURFACE });
-        if (isCurrent(token)) setView(viewFromSession(next));
-      } catch (error) {
-        if (isCurrent(token)) setView(viewFromErrorCode(trpcErrorCode(error), session));
-      } finally {
-        if (mountedRef.current) setBusy(false);
-      }
-    },
-    [busy, isCurrent, sessionId],
-  );
-
-  const confirmNewPrice = useCallback(
-    async (session: CheckoutSession) => {
-      if (!sessionId || busy) return;
-      const token = requestRef.current;
-      setBusy(true);
-      try {
-        const next = await trpc.checkout.confirmPrice.mutate({ sessionId, surface: SURFACE });
-        // Acknowledging shows the fan the new number and hands the purchase
-        // decision back to them — it deliberately does not charge. Expand the
-        // breakdown so the strike-through previous price is visible without a tap.
-        if (isCurrent(token)) {
-          setDetailsExpanded(true);
-          setView(
-            viewFromSession(
-              next,
-              priceUpdatedNotice(next.acknowledgedPrice),
-              session.acknowledgedPrice,
-            ),
-          );
-        }
-      } catch (error) {
-        if (isCurrent(token)) setView(viewFromErrorCode(trpcErrorCode(error), session));
-      } finally {
-        if (mountedRef.current) setBusy(false);
-      }
-    },
-    [busy, isCurrent, sessionId],
-  );
 
   const onShare = useCallback(async (payload: { webUrl: string; mobileUrl: string }) => {
     // Message-only: iOS Copy pastes the URL; message+url showed "2 Links";
@@ -191,14 +137,26 @@ export default function CheckoutScreen() {
     router.back();
   }, [listingsUtils.listings.list, router, sessionId]);
 
+  const onDemoPriceExpire = useCallback(() => {
+    if (!sessionId || view.kind !== 'ready') return;
+    void refreshFromResume(sessionId);
+  }, [refreshFromResume, sessionId, view.kind]);
+
+  const completePurchase = useCallback(
+    async (session: CheckoutSession) => {
+      if (!sessionId || busy) return;
+      await completeOrder(session);
+    },
+    [busy, completeOrder, sessionId],
+  );
+
   const session = sessionFromView(view);
   const previousUnitPriceCents = view.kind === 'ready' ? view.previousUnitPriceCents : undefined;
   const presentation = session
     ? mapCheckoutPresentation(session, { viewKind: view.kind, previousUnitPriceCents })
     : null;
   const showShell = view.kind !== 'loading' && presentation !== null;
-  const showStickyActions =
-    view.kind === 'ready' || view.kind === 'price_changed' || view.kind === 'failed';
+  const showStickyActions = showsCheckoutActions(view);
   const showDemoCountdown = view.kind === 'ready' && msUntilDemoPriceBump(view.session) !== null;
 
   return (
@@ -235,6 +193,7 @@ export default function CheckoutScreen() {
               <DemoPriceCountdown
                 listingId={view.session.listingId}
                 createdAt={view.session.createdAt}
+                onExpire={onDemoPriceExpire}
               />
             ) : null}
             <View

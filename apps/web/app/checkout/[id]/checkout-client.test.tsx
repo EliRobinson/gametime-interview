@@ -1,7 +1,9 @@
 import type { CheckoutSession } from '@repo/api-contracts';
 import { DEMO_PRICE_CHANGE } from '@repo/api-contracts';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import type { ReactElement } from 'react';
 
+import { CheckoutLeaveModeProvider } from '../../checkout-leave-mode';
 import { CheckoutClient } from './checkout-client';
 
 jest.mock('../../../src/trpc-client', () => ({
@@ -9,6 +11,7 @@ jest.mock('../../../src/trpc-client', () => ({
     checkout: {
       complete: { mutate: jest.fn() },
       confirmPrice: { mutate: jest.fn() },
+      resume: { mutate: jest.fn() },
       release: { mutate: jest.fn() },
     },
   },
@@ -20,6 +23,7 @@ const { trpc } = require('../../../src/trpc-client') as {
     checkout: {
       complete: { mutate: jest.Mock };
       confirmPrice: { mutate: jest.Mock };
+      resume: { mutate: jest.Mock };
       release: { mutate: jest.Mock };
     };
   };
@@ -36,6 +40,10 @@ const baseSession: CheckoutSession = {
   failureReason: null,
 };
 
+function renderCheckout(ui: ReactElement) {
+  return render(<CheckoutLeaveModeProvider>{ui}</CheckoutLeaveModeProvider>);
+}
+
 /** Shaped like a TRPCClientError: the wire code hangs off `.data.code`. */
 function trpcError(code: string, message = 'nope'): Error & { data: { code: string } } {
   return Object.assign(new Error(message), { data: { code } });
@@ -44,6 +52,7 @@ function trpcError(code: string, message = 'nope'): Error & { data: { code: stri
 beforeEach(() => {
   trpc.checkout.complete.mutate.mockReset();
   trpc.checkout.confirmPrice.mutate.mockReset();
+  trpc.checkout.resume.mutate.mockReset();
   trpc.checkout.release.mutate.mockReset();
   trpc.checkout.release.mutate.mockResolvedValue({
     ...baseSession,
@@ -58,7 +67,9 @@ afterEach(() => {
 
 describe('CheckoutClient', () => {
   it('renders processing (no Buy CTA) when the session is already pending_payment', () => {
-    render(<CheckoutClient initialSession={{ ...baseSession, status: 'pending_payment' }} />);
+    renderCheckout(
+      <CheckoutClient initialSession={{ ...baseSession, status: 'pending_payment' }} />,
+    );
     expect(screen.getAllByText(/payment in progress/i).length).toBeGreaterThan(0);
     expect(screen.queryByRole('button', { name: /continue/i })).not.toBeInTheDocument();
   });
@@ -72,7 +83,7 @@ describe('CheckoutClient', () => {
         }),
     );
 
-    render(<CheckoutClient initialSession={baseSession} />);
+    renderCheckout(<CheckoutClient initialSession={baseSession} />);
     fireEvent.click(screen.getByRole('button', { name: /continue/i }));
 
     expect((await screen.findAllByText(/payment in progress/i)).length).toBeGreaterThan(0);
@@ -83,15 +94,15 @@ describe('CheckoutClient', () => {
   });
 
   it('renders the continue CTA for an active session', () => {
-    render(<CheckoutClient initialSession={baseSession} />);
+    renderCheckout(<CheckoutClient initialSession={baseSession} />);
     expect(screen.getByRole('button', { name: /continue/i })).toBeInTheDocument();
   });
 
   it('shows a price-change banner when the live price differs from the acknowledged price', () => {
-    render(
+    renderCheckout(
       <CheckoutClient
         initialSession={{ ...baseSession, acknowledgedPrice: 4200 }}
-        priceChangedTo={5000}
+        livePriceCents={5000}
       />,
     );
     expect(screen.getByText(/price changed/i)).toBeInTheDocument();
@@ -100,7 +111,7 @@ describe('CheckoutClient', () => {
 
   it('tells a lapsed session apart from a released hold', () => {
     // Same status, different cause — and different next steps for the fan.
-    const lapsed = render(
+    const lapsed = renderCheckout(
       <CheckoutClient
         initialSession={{ ...baseSession, status: 'expired', expiryReason: 'session_lapsed' }}
       />,
@@ -109,7 +120,7 @@ describe('CheckoutClient', () => {
     expect(screen.queryByText(/listing no longer available/i)).not.toBeInTheDocument();
     lapsed.unmount();
 
-    render(
+    renderCheckout(
       <CheckoutClient
         initialSession={{ ...baseSession, status: 'expired', expiryReason: 'hold_released' }}
       />,
@@ -119,18 +130,18 @@ describe('CheckoutClient', () => {
   });
 
   it('hides completion until an unacknowledged price change is confirmed', () => {
-    render(<CheckoutClient initialSession={baseSession} priceChangedTo={5000} />);
+    renderCheckout(<CheckoutClient initialSession={baseSession} livePriceCents={5000} />);
     expect(screen.queryByRole('button', { name: /continue/i })).not.toBeInTheDocument();
   });
 
   it('shows a confirmation for a completed session and offers no complete button', () => {
-    render(<CheckoutClient initialSession={{ ...baseSession, status: 'completed' }} />);
+    renderCheckout(<CheckoutClient initialSession={{ ...baseSession, status: 'completed' }} />);
     expect(screen.getByText(/you're all set/i)).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /continue/i })).not.toBeInTheDocument();
   });
 
   it('shows the failure reason and a retry button for a failed session', () => {
-    render(
+    renderCheckout(
       <CheckoutClient
         initialSession={{ ...baseSession, status: 'failed', failureReason: 'card_declined' }}
       />,
@@ -141,7 +152,7 @@ describe('CheckoutClient', () => {
 
   it('moves into the price-change state when complete rejects with PRECONDITION_FAILED', async () => {
     trpc.checkout.complete.mutate.mockRejectedValue(trpcError('PRECONDITION_FAILED'));
-    render(<CheckoutClient initialSession={baseSession} />);
+    renderCheckout(<CheckoutClient initialSession={baseSession} />);
 
     fireEvent.click(screen.getByRole('button', { name: /continue/i }));
 
@@ -155,7 +166,7 @@ describe('CheckoutClient', () => {
       ...baseSession,
       acknowledgedPrice: 5000,
     });
-    render(<CheckoutClient initialSession={baseSession} priceChangedTo={5000} />);
+    renderCheckout(<CheckoutClient initialSession={baseSession} livePriceCents={5000} />);
 
     fireEvent.click(screen.getByRole('button', { name: /confirm new price/i }));
 
@@ -169,7 +180,7 @@ describe('CheckoutClient', () => {
 
   it('explains a CONFLICT as another device already completing the order', async () => {
     trpc.checkout.complete.mutate.mockRejectedValue(trpcError('CONFLICT'));
-    render(<CheckoutClient initialSession={baseSession} />);
+    renderCheckout(<CheckoutClient initialSession={baseSession} />);
 
     fireEvent.click(screen.getByRole('button', { name: /continue/i }));
 
@@ -178,7 +189,7 @@ describe('CheckoutClient', () => {
 
   it('reports a lapsed session when complete rejects with TIMEOUT', async () => {
     trpc.checkout.complete.mutate.mockRejectedValue(trpcError('TIMEOUT'));
-    render(<CheckoutClient initialSession={baseSession} />);
+    renderCheckout(<CheckoutClient initialSession={baseSession} />);
 
     fireEvent.click(screen.getByRole('button', { name: /continue/i }));
 
@@ -187,7 +198,7 @@ describe('CheckoutClient', () => {
 
   it('reports a released hold when complete rejects with UNPROCESSABLE_CONTENT', async () => {
     trpc.checkout.complete.mutate.mockRejectedValue(trpcError('UNPROCESSABLE_CONTENT'));
-    render(<CheckoutClient initialSession={baseSession} />);
+    renderCheckout(<CheckoutClient initialSession={baseSession} />);
 
     fireEvent.click(screen.getByRole('button', { name: /continue/i }));
 
@@ -197,7 +208,7 @@ describe('CheckoutClient', () => {
   });
 
   it('exposes Share tickets for an active session without rendering raw URLs', () => {
-    render(<CheckoutClient initialSession={baseSession} />);
+    renderCheckout(<CheckoutClient initialSession={baseSession} />);
 
     expect(screen.getByRole('button', { name: /share tickets/i })).toBeInTheDocument();
     expect(screen.queryByText(/http:\/\/localhost:3001\/checkout\//)).not.toBeInTheDocument();
@@ -205,13 +216,13 @@ describe('CheckoutClient', () => {
   });
 
   it('does not offer Open in app — custom schemes from the browser are too volatile', () => {
-    render(<CheckoutClient initialSession={baseSession} />);
+    renderCheckout(<CheckoutClient initialSession={baseSession} />);
 
     expect(screen.queryByRole('button', { name: /open in app/i })).not.toBeInTheDocument();
   });
 
   it('hides share for a completed session', () => {
-    render(<CheckoutClient initialSession={{ ...baseSession, status: 'completed' }} />);
+    renderCheckout(<CheckoutClient initialSession={{ ...baseSession, status: 'completed' }} />);
 
     expect(screen.queryByRole('button', { name: /share tickets/i })).not.toBeInTheDocument();
   });
@@ -221,10 +232,10 @@ describe('CheckoutClient', () => {
 
     function renderWithHomeLink(session: CheckoutSession = baseSession) {
       return render(
-        <>
+        <CheckoutLeaveModeProvider>
           <a href="/">Gametime home</a>
           <CheckoutClient initialSession={session} />
-        </>,
+        </CheckoutLeaveModeProvider>,
       );
     }
 
@@ -348,17 +359,26 @@ describe('CheckoutClient', () => {
       expiresAt: '2026-01-01T00:10:00.000Z',
     };
 
-    render(<CheckoutClient initialSession={demoSession} />);
+    renderCheckout(<CheckoutClient initialSession={demoSession} />);
     expect(screen.getByRole('button', { name: /continue/i })).toBeInTheDocument();
     expect(screen.getByTestId('demo-price-countdown')).toHaveTextContent(
       `${DEMO_PRICE_CHANGE.afterMs / 1000}s`,
     );
 
+    trpc.checkout.resume.mutate.mockResolvedValue({
+      session: demoSession,
+      livePriceCents: DEMO_PRICE_CHANGE.heldPriceAfterBumpCents,
+    });
+
     await act(async () => {
       await jest.advanceTimersByTimeAsync(DEMO_PRICE_CHANGE.afterMs);
     });
 
-    expect(screen.getByText(/price changed/i)).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByText(/price changed/i)).toBeInTheDocument());
+    expect(trpc.checkout.resume.mutate).toHaveBeenCalledWith({
+      sessionId: 'sess_demo',
+      surface: 'web',
+    });
     expect(screen.getByRole('button', { name: /confirm new price/i })).toBeInTheDocument();
     expect(screen.getByText(/\$109\.00/)).toBeInTheDocument();
     expect(screen.queryByTestId('demo-price-countdown')).not.toBeInTheDocument();
@@ -375,7 +395,7 @@ describe('CheckoutClient', () => {
       createdAt: '2026-01-01T00:00:00.000Z',
     });
 
-    render(
+    renderCheckout(
       <CheckoutClient
         initialSession={{
           ...baseSession,
@@ -386,7 +406,7 @@ describe('CheckoutClient', () => {
           // bounce back into price_changed after confirm.
           createdAt: '2026-01-01T00:00:00.000Z',
         }}
-        priceChangedTo={10900}
+        livePriceCents={10900}
       />,
     );
 

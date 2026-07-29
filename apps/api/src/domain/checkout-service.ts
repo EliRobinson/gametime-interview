@@ -1,4 +1,9 @@
-import type { CheckoutSession, CheckoutSurface, SessionExpiryReason } from '@repo/api-contracts';
+import type {
+  CheckoutSession,
+  CheckoutSurface,
+  ResumeSessionResult,
+  SessionExpiryReason,
+} from '@repo/api-contracts';
 import { nanoid } from 'nanoid';
 
 import type { EventLog } from './events';
@@ -75,17 +80,22 @@ export class CheckoutService {
     return session;
   }
 
-  async resumeSession(id: string, surface: CheckoutSurface): Promise<CheckoutSession> {
+  async resumeSession(id: string, surface: CheckoutSurface): Promise<ResumeSessionResult> {
     // Session expiration and the inventory hold are two independent clocks: a
     // session can be unexpired but reference inventory that is no longer held,
     // so resume checks the hold live rather than trusting `expiresAt`.
     let session = await this.expireIfNeeded(this.mustGet(id));
+    let livePriceCents: number | null = null;
     if (!this.isTerminal(session)) {
       const holdStatus = await this.inventory.getHoldStatus(session.listingId);
-      if (!holdStatus.held) session = this.expireNow(session, 'hold_released');
+      if (!holdStatus.held) {
+        session = this.expireNow(session, 'hold_released');
+      } else {
+        livePriceCents = holdStatus.currentPrice;
+      }
     }
     this.events.emit({ name: 'session_resumed', sessionId: id, toSurface: surface });
-    return session;
+    return { session, livePriceCents };
   }
 
   async confirmPrice(id: string): Promise<CheckoutSession> {
@@ -97,11 +107,10 @@ export class CheckoutService {
     if (session.status === 'pending_payment') throw new ConflictError(id);
 
     const holdStatus = await this.inventory.getHoldStatus(session.listingId);
-    const updated = this.store.casUpdate(id, session.status, (session) => ({
-      ...session,
+    const updated = this.mustCasUpdate(id, session.status, (current) => ({
+      ...current,
       acknowledgedPrice: holdStatus.currentPrice,
     }));
-    if (!updated) throw new ConflictError(id);
     this.events.emit({ name: 'price_reconfirmed', sessionId: id });
     return updated;
   }
@@ -128,29 +137,28 @@ export class CheckoutService {
     // Claim the session before charging. Whichever surface wins this swap owns
     // the payment attempt; the loser gets a ConflictError instead of a
     // duplicate order.
-    const claimed = this.store.casUpdate(id, session.status, (session) => ({
-      ...session,
+    this.mustCasUpdate(id, session.status, (current) => ({
+      ...current,
       status: 'pending_payment',
     }));
-    if (!claimed) throw new ConflictError(id);
 
     const outcome = await this.payment.charge(id, holdStatus.currentPrice);
     if (outcome === 'succeeded') {
-      const completed = this.store.casUpdate(id, 'pending_payment', (session) => ({
-        ...session,
+      const completed = this.mustCasUpdate(id, 'pending_payment', (current) => ({
+        ...current,
         status: 'completed',
       }));
       this.events.emit({ name: 'session_completed', sessionId: id, surface });
-      return completed as CheckoutSession;
+      return completed;
     }
 
-    const failed = this.store.casUpdate(id, 'pending_payment', (session) => ({
-      ...session,
+    const failed = this.mustCasUpdate(id, 'pending_payment', (current) => ({
+      ...current,
       status: 'failed',
       failureReason: outcome,
     }));
     this.events.emit({ name: 'session_failed', sessionId: id, surface });
-    return failed as CheckoutSession;
+    return failed;
   }
 
   /**
@@ -173,25 +181,71 @@ export class CheckoutService {
     return expired;
   }
 
+  /**
+   * Background / on-demand sweep: expire sessions past `expiresAt` and free
+   * their holds. Same lapse path as request-time TTL. Skips mid-charge.
+   * @returns how many sessions this pass newly marked session_lapsed
+   */
+  async expireLapsedSessions(): Promise<number> {
+    let swept = 0;
+    for (const session of this.store.list()) {
+      if (!this.isEligibleForSessionClockLapse(session)) continue;
+      const expired = await this.lapseForSessionClock(session);
+      if (expired) swept += 1;
+    }
+    return swept;
+  }
+
   private mustGet(id: string): CheckoutSession {
     const session = this.store.get(id);
     if (!session) throw new SessionNotFoundError(id);
     return session;
   }
 
+  private mustCasUpdate(
+    id: string,
+    expectedStatus: CheckoutSession['status'],
+    updater: (session: CheckoutSession) => CheckoutSession,
+  ): CheckoutSession {
+    const updated = this.store.casUpdate(id, expectedStatus, updater);
+    if (!updated) throw new ConflictError(id);
+    return updated;
+  }
+
   private isTerminal(session: CheckoutSession): boolean {
     return session.status === 'completed' || session.status === 'expired';
   }
 
+  /** Active/failed past TTL — not terminal, not mid-charge. */
+  private isEligibleForSessionClockLapse(session: CheckoutSession): boolean {
+    if (this.isTerminal(session)) return false;
+    if (session.status === 'pending_payment') return false;
+    return new Date(session.expiresAt).getTime() < Date.now();
+  }
+
   private async expireIfNeeded(session: CheckoutSession): Promise<CheckoutSession> {
-    if (this.isTerminal(session)) return session;
-    if (new Date(session.expiresAt).getTime() >= Date.now()) return session;
-    return this.expireNow(session, 'session_lapsed');
+    if (!this.isEligibleForSessionClockLapse(session)) return session;
+    await this.lapseForSessionClock(session);
+    return this.mustGet(session.id);
+  }
+
+  /**
+   * Mark session_lapsed then free the hold. CAS first so a concurrent
+   * pending_payment claim cannot lose its inventory underneath it.
+   * @returns true when this call won the expire CAS
+   */
+  private async lapseForSessionClock(session: CheckoutSession): Promise<boolean> {
+    const expired = this.expireNow(session, 'session_lapsed');
+    if (expired.status !== 'expired' || expired.expiryReason !== 'session_lapsed') {
+      return false;
+    }
+    await this.inventory.releaseHold(session.listingId);
+    return true;
   }
 
   private expireNow(session: CheckoutSession, reason: SessionExpiryReason): CheckoutSession {
-    const expired = this.store.casUpdate(session.id, session.status, (session) => ({
-      ...session,
+    const expired = this.store.casUpdate(session.id, session.status, (current) => ({
+      ...current,
       status: 'expired',
       expiryReason: reason,
     }));

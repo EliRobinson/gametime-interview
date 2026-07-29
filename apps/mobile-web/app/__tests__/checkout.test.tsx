@@ -58,6 +58,16 @@ const release = trpc.checkout.release.mutate as jest.Mock;
 // A TRPCClientError carries its wire code on `error.data.code`; the screen
 // duck-types that shape rather than importing the class, so the fakes below
 // are exactly what it reads in production.
+
+function resumeResult(
+  session: CheckoutSession,
+  livePriceCents: number | null = session.status === 'active' || session.status === 'failed'
+    ? session.acknowledgedPrice
+    : null,
+) {
+  return { session, livePriceCents };
+}
+
 function trpcError(code: string, message = code) {
   return Object.assign(new Error(message), { data: { code } });
 }
@@ -80,7 +90,7 @@ beforeEach(() => {
 
 describe('CheckoutScreen', () => {
   it('shows processing (no Buy CTA) when resume returns pending_payment', async () => {
-    resume.mockResolvedValue({ ...activeSession, status: 'pending_payment' });
+    resume.mockResolvedValue(resumeResult({ ...activeSession, status: 'pending_payment' }));
 
     render(<CheckoutScreen />);
 
@@ -91,10 +101,13 @@ describe('CheckoutScreen', () => {
   it('shows a loading state, then the active checkout state once resumed', async () => {
     // Keep resume pending until after the first paint so we can assert loading —
     // mockResolvedValue settles inside RTL's act() and skips straight to ready.
-    let resolveResume!: (session: CheckoutSession) => void;
+    let resolveResume!: (result: {
+      session: CheckoutSession;
+      livePriceCents: number | null;
+    }) => void;
     resume.mockImplementation(
       () =>
-        new Promise<CheckoutSession>((resolve) => {
+        new Promise<{ session: CheckoutSession; livePriceCents: number | null }>((resolve) => {
           resolveResume = resolve;
         }),
     );
@@ -103,14 +116,14 @@ describe('CheckoutScreen', () => {
 
     expect(screen.getByText(/finding your checkout/i)).toBeTruthy();
 
-    resolveResume(activeSession);
+    resolveResume(resumeResult(activeSession));
 
     await waitFor(() => expect(screen.getByTestId('complete-button')).toBeTruthy());
     expect(screen.getByText(/\$84\.00/)).toBeTruthy();
   });
 
   it('resumes reporting the mobile surface so the event log records the handoff', async () => {
-    resume.mockResolvedValue(activeSession);
+    resume.mockResolvedValue(resumeResult(activeSession));
 
     render(<CheckoutScreen />);
 
@@ -119,7 +132,7 @@ describe('CheckoutScreen', () => {
   });
 
   it('shows an unavailable state for an expired session', async () => {
-    resume.mockResolvedValue({ ...activeSession, status: 'expired' });
+    resume.mockResolvedValue(resumeResult({ ...activeSession, status: 'expired' }));
 
     render(<CheckoutScreen />);
 
@@ -127,13 +140,13 @@ describe('CheckoutScreen', () => {
   });
 
   it('distinguishes an expired session from an unavailable listing', async () => {
-    resume.mockResolvedValue({ ...activeSession, status: 'expired' });
+    resume.mockResolvedValue(resumeResult({ ...activeSession, status: 'expired' }));
     const expiredView = render(<CheckoutScreen />);
     await waitFor(() => expect(screen.getByText('Checkout session expired')).toBeTruthy());
     expect(screen.queryByText('Listing no longer available')).toBeNull();
     expiredView.unmount();
 
-    resume.mockResolvedValue(activeSession);
+    resume.mockResolvedValue(resumeResult(activeSession));
     complete.mockRejectedValue(trpcError('UNPROCESSABLE_CONTENT'));
     render(<CheckoutScreen />);
     await waitFor(() => expect(screen.getByTestId('complete-button')).toBeTruthy());
@@ -146,11 +159,13 @@ describe('CheckoutScreen', () => {
   it('reads unavailability off a resumed session whose inventory hold was released', async () => {
     // The session's own clock is fine; the hold underneath it went away. Resume
     // reports that as `expired`, and only `expiryReason` says which clock ran out.
-    resume.mockResolvedValue({
-      ...activeSession,
-      status: 'expired',
-      expiryReason: 'hold_released',
-    });
+    resume.mockResolvedValue(
+      resumeResult({
+        ...activeSession,
+        status: 'expired',
+        expiryReason: 'hold_released',
+      }),
+    );
 
     render(<CheckoutScreen />);
 
@@ -159,7 +174,7 @@ describe('CheckoutScreen', () => {
   });
 
   it('shows a confirmation state for a completed session', async () => {
-    resume.mockResolvedValue({ ...activeSession, status: 'completed' });
+    resume.mockResolvedValue(resumeResult({ ...activeSession, status: 'completed' }));
 
     render(<CheckoutScreen />);
 
@@ -167,7 +182,7 @@ describe('CheckoutScreen', () => {
   });
 
   it('requires an explicit acknowledgement before completing at a changed price', async () => {
-    resume.mockResolvedValue(activeSession);
+    resume.mockResolvedValue(resumeResult(activeSession));
     complete.mockRejectedValueOnce(trpcError('PRECONDITION_FAILED'));
     confirmPrice.mockResolvedValue({ ...activeSession, acknowledgedPrice: 5500 });
 
@@ -202,7 +217,7 @@ describe('CheckoutScreen', () => {
   });
 
   it('tells the fan the order is being completed on another device on CONFLICT', async () => {
-    resume.mockResolvedValue(activeSession);
+    resume.mockResolvedValue(resumeResult(activeSession));
     complete.mockRejectedValue(trpcError('CONFLICT'));
 
     render(<CheckoutScreen />);
@@ -216,11 +231,13 @@ describe('CheckoutScreen', () => {
   });
 
   it('shows the failure reason and lets the fan retry a failed payment', async () => {
-    resume.mockResolvedValue({
-      ...activeSession,
-      status: 'failed',
-      failureReason: 'card_declined',
-    });
+    resume.mockResolvedValue(
+      resumeResult({
+        ...activeSession,
+        status: 'failed',
+        failureReason: 'card_declined',
+      }),
+    );
     complete.mockResolvedValue({ ...activeSession, status: 'completed' });
 
     render(<CheckoutScreen />);
@@ -252,7 +269,7 @@ describe('CheckoutScreen', () => {
   });
 
   it('shows Share tickets for an active session without exposing raw URLs', async () => {
-    resume.mockResolvedValue(activeSession);
+    resume.mockResolvedValue(resumeResult(activeSession));
 
     render(<CheckoutScreen />);
 
@@ -262,7 +279,7 @@ describe('CheckoutScreen', () => {
   });
 
   it('releases the ticket hold when the fan taps back', async () => {
-    resume.mockResolvedValue(activeSession);
+    resume.mockResolvedValue(resumeResult(activeSession));
 
     render(<CheckoutScreen />);
     await waitFor(() => expect(screen.getByTestId('checkout-back')).toBeTruthy());
@@ -277,7 +294,7 @@ describe('CheckoutScreen', () => {
   });
 
   it('still navigates back if release fails', async () => {
-    resume.mockResolvedValue(activeSession);
+    resume.mockResolvedValue(resumeResult(activeSession));
     release.mockRejectedValue(new Error('offline'));
 
     render(<CheckoutScreen />);

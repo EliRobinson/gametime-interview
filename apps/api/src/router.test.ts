@@ -122,7 +122,8 @@ describe('appRouter.checkout', () => {
     expect(created.status).toBe('active');
 
     const resumed = await caller.checkout.resume({ sessionId: created.id });
-    expect(resumed.status).toBe('active');
+    expect(resumed.session.status).toBe('active');
+    expect(resumed.livePriceCents).toBe(4200);
 
     const completed = await caller.checkout.complete({ sessionId: created.id });
     expect(completed.status).toBe('completed');

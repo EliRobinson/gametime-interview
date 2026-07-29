@@ -6,7 +6,6 @@ import {
 
 describe('checkoutShare', () => {
   it.each([
-    { status: 'created' as const, shareable: true },
     { status: 'active' as const, shareable: true },
     { status: 'failed' as const, shareable: true },
     { status: 'completed' as const, shareable: false },

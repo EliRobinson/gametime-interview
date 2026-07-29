@@ -4,6 +4,13 @@
  * Import from `@repo/ui/server` so the main barrel's client components are not pulled in.
  */
 export { CHECKOUT_COPY } from './features/checkout/checkout.copy';
+export {
+  isDecorativeSessionStatus,
+  isShareableSession,
+  sessionFromView,
+  showsCheckoutActions,
+  showsDecorativeChrome,
+} from './features/checkout/checkout.policy.util';
 export type {
   CheckoutMapBubble,
   CheckoutPresentation,
@@ -13,6 +20,7 @@ export { mapCheckoutPresentation } from './features/checkout/mapCheckoutPresenta
 export {
   priceUpdatedNotice,
   viewFromErrorCode,
+  viewFromResume,
   viewFromSession,
 } from './features/checkout/mapCheckoutView.util';
 export {

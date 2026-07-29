@@ -1,6 +1,6 @@
 import { msUntilDemoPriceBump } from '@repo/api-contracts';
 import { colors } from '@repo/tokens';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Text as RNText, View } from 'react-native';
 
 import { useTheme } from '../../theme';
@@ -10,6 +10,11 @@ type DemoPriceCountdownProps = {
   createdAt: string;
   /** When false, hide even if this is the demo listing. */
   visible?: boolean;
+  /**
+   * Fires once when the countdown reaches zero so the parent can re-resume
+   * and pick up the authoritative live hold price.
+   */
+  onExpire?: () => void;
   testID?: string;
 };
 
@@ -21,12 +26,20 @@ export function DemoPriceCountdown({
   listingId,
   createdAt,
   visible = true,
+  onExpire,
   testID = 'demo-price-countdown',
 }: DemoPriceCountdownProps) {
   const theme = useTheme();
   const [secondsLeft, setSecondsLeft] = useState<number | null>(() =>
     secondsUntilBump(listingId, createdAt),
   );
+  const expiredRef = useRef(false);
+  const onExpireRef = useRef(onExpire);
+  onExpireRef.current = onExpire;
+
+  useEffect(() => {
+    expiredRef.current = false;
+  }, [createdAt, listingId]);
 
   useEffect(() => {
     if (!visible) {
@@ -35,7 +48,12 @@ export function DemoPriceCountdown({
     }
 
     function tick() {
-      setSecondsLeft(secondsUntilBump(listingId, createdAt));
+      const remaining = secondsUntilBump(listingId, createdAt);
+      setSecondsLeft(remaining);
+      if (remaining !== null && remaining <= 0 && !expiredRef.current) {
+        expiredRef.current = true;
+        onExpireRef.current?.();
+      }
     }
 
     tick();

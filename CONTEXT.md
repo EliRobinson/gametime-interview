@@ -13,8 +13,7 @@ people (or two devices for the same person) can both resume the same session.
 
 The checkout session moves through a single state machine (`status` field):
 
-- **created** — session just made for a selected listing; inventory hold placed.
-- **active** — fan is viewing/resuming the session; inventory still held, price/inventory
+- **active** — session created with inventory held; fan is viewing/resuming; price/inventory
   can still change underneath it.
 - **pending_payment** — fan submitted payment; awaiting provider result. This is the window
   where a second device resuming the same session is the actual duplicate-order hazard the
@@ -22,8 +21,8 @@ The checkout session moves through a single state machine (`status` field):
 - **completed** — order placed successfully. Terminal.
 - **expired** — inventory hold lapsed before completion. Terminal unless the fan starts a
   fresh session (re-priced/re-held).
-- **failed** — payment or completion failed. Fan may retry (transitions back to **active**)
-  or the session expires.
+- **failed** — payment or completion failed. Fan may retry (claims again through
+  **pending_payment**) or the session expires.
 
 ## Price Reconfirmation
 
@@ -50,3 +49,8 @@ own `expiresAt` implies the hold is still good — the hold can lapse independen
 shorter TTL than the session, or inventory reclaimed for other reasons). A session can be
 unexpired but reference inventory that is no longer held; that combination surfaces to the
 fan as a distinct "listing no longer available" state, not the same as "session expired."
+Conversely, when the session clock itself lapses, checkout also releases the hold
+(request-time via `expireIfNeeded`, or in the background via `expireLapsedSessions` /
+`SessionExpirySweeper`) so inventory isn't stranded — `expiryReason` stays
+`session_lapsed` (why the session died), not `hold_released` (hold disappeared while the
+session was still live).

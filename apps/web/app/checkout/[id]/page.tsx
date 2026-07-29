@@ -25,7 +25,7 @@ export default async function CheckoutPage({ params }: { params: { id: string } 
 
   return (
     <main style={styles.main}>
-      <CheckoutClient initialSession={result.session} />
+      <CheckoutClient initialSession={result.session} livePriceCents={result.livePriceCents} />
     </main>
   );
 }

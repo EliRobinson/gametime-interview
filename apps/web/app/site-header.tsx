@@ -4,13 +4,19 @@ import { CHECKOUT_COPY } from '@repo/ui';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
+import { useCheckoutLeaveMode } from './checkout-leave-mode';
+
 function isCheckoutPath(pathname: string): boolean {
   return pathname.startsWith('/checkout/');
 }
 
 export function SiteHeader() {
   const pathname = usePathname();
-  const showCancel = isCheckoutPath(pathname);
+  const { leaveMode } = useCheckoutLeaveMode();
+  const showLeaveControl = isCheckoutPath(pathname);
+  const isDone = leaveMode === 'done';
+  const leaveLabel = isDone ? CHECKOUT_COPY.doneLabel : CHECKOUT_COPY.cancelLabel;
+  const leaveAriaLabel = isDone ? CHECKOUT_COPY.doneAriaLabel : CHECKOUT_COPY.cancelAriaLabel;
 
   return (
     <header className="site-header">
@@ -46,14 +52,14 @@ export function SiteHeader() {
         </span>
       </Link>
 
-      {showCancel ? (
+      {showLeaveControl ? (
         <div className="site-header-cancel-layer">
           <div className="site-header-cancel-shell">
             <div className="site-header-cancel-grid">
               <div className="site-header-cancel-slot">
                 <Link
                   href="/"
-                  aria-label={CHECKOUT_COPY.cancelAriaLabel}
+                  aria-label={leaveAriaLabel}
                   data-testid="checkout-cancel"
                   className="site-header-cancel"
                 >
@@ -61,7 +67,7 @@ export function SiteHeader() {
                     ‹
                   </span>
                   <span className="site-header-cancel-text" aria-hidden>
-                    {CHECKOUT_COPY.cancelLabel}
+                    {leaveLabel}
                   </span>
                 </Link>
               </div>

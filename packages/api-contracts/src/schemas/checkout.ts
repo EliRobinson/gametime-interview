@@ -1,7 +1,6 @@
 import { z } from 'zod';
 
 export const checkoutSessionStatus = z.enum([
-  'created',
   'active',
   'pending_payment',
   'completed',
@@ -43,6 +42,16 @@ export const sessionIdInput = z.object({
   surface: checkoutSurface.default('web'),
 });
 export type SessionIdInput = z.infer<typeof sessionIdInput>;
+
+/**
+ * Resume returns the session plus the live hold price (when still held) so
+ * clients can map price_changed without a second client-side price clock.
+ */
+export const resumeSessionResultSchema = z.object({
+  session: checkoutSessionSchema,
+  livePriceCents: z.number().nonnegative().nullable(),
+});
+export type ResumeSessionResult = z.infer<typeof resumeSessionResultSchema>;
 
 // The tRPC wire codes this checkout flow actually throws, named after the
 // domain failure each one stands in for. Both clients switch on these to

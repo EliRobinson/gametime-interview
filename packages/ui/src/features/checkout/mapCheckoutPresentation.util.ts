@@ -3,17 +3,8 @@ import { formatCurrency } from '@repo/utils';
 
 import { DEMO_EVENT, LISTING_FIXTURES } from '../listings/listings.fixtures';
 import { CHECKOUT_COPY } from './checkout.copy';
+import { showsDecorativeChrome } from './checkout.policy.util';
 import type { CheckoutPresentation, CheckoutView } from './checkout.view-model';
-
-const TERMINAL_KINDS = new Set<CheckoutView['kind']>([
-  'completed',
-  'expired',
-  'unavailable',
-  'claimed_elsewhere',
-  'processing',
-  'not_found',
-  'error',
-]);
 
 export type MapCheckoutPresentationOptions = {
   viewKind?: CheckoutView['kind'];
@@ -31,7 +22,7 @@ export function mapCheckoutPresentation(
 ): CheckoutPresentation {
   const fixture = LISTING_FIXTURES[session.listingId];
   const viewKind = options?.viewKind;
-  const showDecorativeChrome = viewKind === undefined || !TERMINAL_KINDS.has(viewKind);
+  const showDecorativeChrome = showsDecorativeChrome(viewKind);
 
   const section = fixture?.section ?? null;
   const row = fixture?.row ?? null;

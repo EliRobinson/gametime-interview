@@ -6,6 +6,10 @@ export const CHECKOUT_COPY = {
   cancelLabel: 'Cancel',
   /** Accessible name for the cancel control (icon-only on narrow screens). */
   cancelAriaLabel: 'Cancel purchase',
+  /** Visible leave word after a successful purchase (same header control). */
+  doneLabel: 'Done',
+  /** Accessible name for the post-purchase leave control. */
+  doneAriaLabel: 'Done',
   completePurchase: 'CONTINUE',
   completing: 'CONTINUING…',
   confirmNewPrice: 'CONFIRM NEW PRICE',

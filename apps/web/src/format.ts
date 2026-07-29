@@ -1,7 +1,6 @@
 import type { CheckoutSessionStatus } from '@repo/api-contracts';
 
 const STATUS_LABELS: Record<CheckoutSessionStatus, string> = {
-  created: 'Created',
   active: 'Active',
   pending_payment: 'Payment in progress',
   completed: 'Completed',

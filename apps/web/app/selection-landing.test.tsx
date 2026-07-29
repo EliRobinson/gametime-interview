@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 
 import { SelectionLanding } from './selection-landing';
 
@@ -63,5 +63,30 @@ describe('SelectionLanding', () => {
 
     await waitFor(() => expect(screen.getByTestId('listings-load-error')).toBeInTheDocument());
     expect(screen.getByTestId('listings-retry')).toBeInTheDocument();
+  });
+
+  it('polls listings every 10 seconds and reflects availability changes', async () => {
+    jest.useFakeTimers();
+
+    render(<SelectionLanding />);
+
+    await waitFor(() => expect(screen.getByTestId('listing-card-listing_1')).toBeInTheDocument());
+    expect(trpc.listings.list.query).toHaveBeenCalledTimes(1);
+
+    trpc.listings.list.query.mockResolvedValue({
+      listings: [
+        { listingId: 'listing_1', priceCents: 15400, available: false },
+        { listingId: 'listing_2', priceCents: 12500, available: true },
+      ],
+    });
+
+    await act(async () => {
+      await jest.advanceTimersByTimeAsync(10_000);
+    });
+
+    await waitFor(() => expect(trpc.listings.list.query).toHaveBeenCalledTimes(2));
+    expect(screen.getByTestId('listing-card-listing_1')).toHaveAttribute('aria-disabled', 'true');
+
+    jest.useRealTimers();
   });
 });

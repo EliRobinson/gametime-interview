@@ -9,7 +9,7 @@ export const CHECKOUT_COPY = {
   retry: 'TRY AGAIN',
   retrying: 'RETRYING…',
   shareTickets: 'Share tickets',
-  shareTicketsHint: 'Copy a link to resume this checkout in any browser.',
+  shareTicketsHint: 'Copy a web link to resume this checkout in any browser.',
   copyWebLink: 'Copy web link',
   copyMobileLink: 'Copy app link',
   /** Shown before abandoning an active hold (browser back / logo / unload). */
@@ -64,6 +64,10 @@ export const CHECKOUT_COPY = {
   unavailable: {
     title: 'Listing no longer available',
     body: 'These tickets were claimed before your purchase went through. Nothing was charged — browse similar seats instead.',
+  },
+  processing: {
+    title: 'Payment in progress',
+    body: "We're finishing your order now. This screen will update when the charge succeeds or fails — don't tap Buy again.",
   },
   claimedElsewhere: {
     title: 'Finishing on another device',

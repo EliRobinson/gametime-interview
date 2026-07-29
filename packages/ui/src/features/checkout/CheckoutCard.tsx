@@ -12,6 +12,7 @@ import type { ThemeName } from '../../theme';
 import { ThemeProvider, useTheme } from '../../theme';
 import { CHECKOUT_COPY } from './checkout.copy';
 import type { CheckoutView } from './checkout.view-model';
+import { mapCheckoutPresentation } from './mapCheckoutPresentation.util';
 import { ShareTickets } from './ShareTickets';
 
 type CheckoutCardProps = {
@@ -85,7 +86,7 @@ function CheckoutCardBody({
 
     case 'ready':
       return (
-        <View style={{ gap: theme.space[4] }}>
+        <View style={{ gap: theme.space[2] }}>
           {view.notice ? <Notice testID="price-notice">{view.notice}</Notice> : null}
           <Button
             onPress={() => onComplete(view.session)}
@@ -99,15 +100,17 @@ function CheckoutCardBody({
         </View>
       );
 
-    case 'completed':
+    case 'completed': {
+      const orderTotal = formatCurrency(
+        mapCheckoutPresentation(view.session, { viewKind: 'completed' }).totalCents,
+      );
       return (
         <Panel
           title={CHECKOUT_COPY.completed.title}
-          body={`${CHECKOUT_COPY.completed.bodyPrefix} ${formatCurrency(
-            view.session.acknowledgedPrice,
-          )} ${CHECKOUT_COPY.completed.bodySuffix}`}
+          body={`${CHECKOUT_COPY.completed.bodyPrefix} ${orderTotal} ${CHECKOUT_COPY.completed.bodySuffix}`}
         />
       );
+    }
 
     case 'failed':
       return (
@@ -129,7 +132,7 @@ function CheckoutCardBody({
 
     case 'price_changed':
       return (
-        <View style={{ gap: theme.space[4] }}>
+        <View style={{ gap: theme.space[2] }}>
           <Banner testID="price-changed-banner">
             <Text variant="title">{CHECKOUT_COPY.priceChanged.title}</Text>
             <Text variant="body">
@@ -163,6 +166,9 @@ function CheckoutCardBody({
           body={CHECKOUT_COPY.claimedElsewhere.body}
         />
       );
+
+    case 'processing':
+      return <Panel title={CHECKOUT_COPY.processing.title} body={CHECKOUT_COPY.processing.body} />;
 
     case 'not_found':
       return <Panel title={CHECKOUT_COPY.notFound.title} body={CHECKOUT_COPY.notFound.body} />;

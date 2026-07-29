@@ -9,7 +9,11 @@ import { trpc as vanillaTrpc } from '@/lib/trpc-client';
 
 export default function HomeScreen() {
   const router = useRouter();
-  const listingsQuery = trpc.listings.list.useQuery(undefined, { retry: false });
+  const listingsQuery = trpc.listings.list.useQuery(undefined, {
+    retry: false,
+    // Catch server-side availability / price flips while the fan is browsing.
+    refetchInterval: 10_000,
+  });
   const [busy, setBusy] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
 

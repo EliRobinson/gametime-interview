@@ -1,5 +1,6 @@
 import type { CheckoutSession } from '@repo/api-contracts';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { DEMO_PRICE_CHANGE } from '@repo/api-contracts';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 
 import { CheckoutClient } from './checkout-client';
 
@@ -56,6 +57,31 @@ afterEach(() => {
 });
 
 describe('CheckoutClient', () => {
+  it('renders processing (no Buy CTA) when the session is already pending_payment', () => {
+    render(<CheckoutClient initialSession={{ ...baseSession, status: 'pending_payment' }} />);
+    expect(screen.getAllByText(/payment in progress/i).length).toBeGreaterThan(0);
+    expect(screen.queryByRole('button', { name: /continue/i })).not.toBeInTheDocument();
+  });
+
+  it('moves into processing as soon as complete is pressed', async () => {
+    let resolveComplete!: (session: CheckoutSession) => void;
+    trpc.checkout.complete.mutate.mockImplementation(
+      () =>
+        new Promise<CheckoutSession>((resolve) => {
+          resolveComplete = resolve;
+        }),
+    );
+
+    render(<CheckoutClient initialSession={baseSession} />);
+    fireEvent.click(screen.getByRole('button', { name: /continue/i }));
+
+    expect((await screen.findAllByText(/payment in progress/i)).length).toBeGreaterThan(0);
+    expect(screen.queryByRole('button', { name: /continue/i })).not.toBeInTheDocument();
+
+    resolveComplete({ ...baseSession, status: 'completed' });
+    expect(await screen.findByText(/order complete/i)).toBeInTheDocument();
+  });
+
   it('renders the continue CTA for an active session', () => {
     render(<CheckoutClient initialSession={baseSession} />);
     expect(screen.getByRole('button', { name: /continue/i })).toBeInTheDocument();
@@ -176,6 +202,12 @@ describe('CheckoutClient', () => {
     expect(screen.getByRole('button', { name: /share tickets/i })).toBeInTheDocument();
     expect(screen.queryByText(/http:\/\/localhost:3001\/checkout\//)).not.toBeInTheDocument();
     expect(screen.queryByText(/mobileweb:\/\/checkout\//)).not.toBeInTheDocument();
+  });
+
+  it('does not offer Open in app — custom schemes from the browser are too volatile', () => {
+    render(<CheckoutClient initialSession={baseSession} />);
+
+    expect(screen.queryByRole('button', { name: /open in app/i })).not.toBeInTheDocument();
   });
 
   it('hides share for a completed session', () => {
@@ -302,5 +334,70 @@ describe('CheckoutClient', () => {
       expect(window.confirm).not.toHaveBeenCalled();
       expect(trpc.checkout.release.mutate).not.toHaveBeenCalled();
     });
+  });
+
+  it('auto-surfaces the price-change UI for the demo listing after the demo window', async () => {
+    jest.useFakeTimers().setSystemTime(new Date('2026-01-01T00:00:00.000Z'));
+    const demoSession: CheckoutSession = {
+      ...baseSession,
+      id: 'sess_demo',
+      listingId: 'listing_3',
+      priceAtCreation: 8900,
+      acknowledgedPrice: 8900,
+      createdAt: '2026-01-01T00:00:00.000Z',
+      expiresAt: '2026-01-01T00:10:00.000Z',
+    };
+
+    render(<CheckoutClient initialSession={demoSession} />);
+    expect(screen.getByRole('button', { name: /continue/i })).toBeInTheDocument();
+    expect(screen.getByTestId('demo-price-countdown')).toHaveTextContent(
+      `${DEMO_PRICE_CHANGE.afterMs / 1000}s`,
+    );
+
+    await act(async () => {
+      await jest.advanceTimersByTimeAsync(DEMO_PRICE_CHANGE.afterMs);
+    });
+
+    expect(screen.getByText(/price changed/i)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /confirm new price/i })).toBeInTheDocument();
+    expect(screen.getByText(/\$109\.00/)).toBeInTheDocument();
+    expect(screen.queryByTestId('demo-price-countdown')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('previous-unit-price')).not.toBeInTheDocument();
+    jest.useRealTimers();
+  });
+
+  it('strikes through the prior unit price in the summary after confirming', async () => {
+    trpc.checkout.confirmPrice.mutate.mockResolvedValue({
+      ...baseSession,
+      listingId: 'listing_3',
+      priceAtCreation: 8900,
+      acknowledgedPrice: 10900,
+      createdAt: '2026-01-01T00:00:00.000Z',
+    });
+
+    render(
+      <CheckoutClient
+        initialSession={{
+          ...baseSession,
+          listingId: 'listing_3',
+          priceAtCreation: 8900,
+          acknowledgedPrice: 8900,
+          // Past the demo window so a buggy re-schedule would immediately
+          // bounce back into price_changed after confirm.
+          createdAt: '2026-01-01T00:00:00.000Z',
+        }}
+        priceChangedTo={10900}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /confirm new price/i }));
+
+    await waitFor(() =>
+      expect(screen.getByTestId('previous-unit-price')).toHaveTextContent('$89.00'),
+    );
+    expect(screen.queryByTestId('price-changed-banner')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /continue/i })).toBeInTheDocument();
+    expect(screen.getByTestId('ssr-ticket-unit-price')).toHaveTextContent(/\$109\.00/);
+    expect(screen.getByTestId('ssr-acknowledged-price')).toHaveTextContent('$327.00');
   });
 });

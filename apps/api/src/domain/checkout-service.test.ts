@@ -1,3 +1,5 @@
+import { DEMO_PRICE_CHANGE } from '@repo/api-contracts';
+
 import {
   CheckoutService,
   ConflictError,
@@ -247,5 +249,27 @@ describe('CheckoutService', () => {
 
     await expect(service.releaseSession(session.id, 'mobile')).rejects.toThrow(ConflictError);
     await expect(inventory.getHoldStatus('listing_1')).resolves.toMatchObject({ held: true });
+  });
+
+  it('surfaces PriceChangedError once the demo listing hold ages past the bump window', async () => {
+    jest.useFakeTimers().setSystemTime(new Date('2026-01-01T00:00:00.000Z'));
+    const store = new InMemorySessionStore();
+    const inventory = new FakeInventoryProvider({ now: () => Date.now() });
+    const payment = new FakePaymentProvider();
+    const events = new EventLog();
+    inventory.seedListing(DEMO_PRICE_CHANGE.listingId, 8900);
+    const service = new CheckoutService(store, inventory, payment, events);
+
+    const session = await service.createSession(DEMO_PRICE_CHANGE.listingId);
+    jest.advanceTimersByTime(DEMO_PRICE_CHANGE.afterMs);
+
+    await expect(service.completeSession(session.id, 'web')).rejects.toThrow(PriceChangedError);
+
+    const reconfirmed = await service.confirmPrice(session.id);
+    expect(reconfirmed.acknowledgedPrice).toBe(DEMO_PRICE_CHANGE.heldPriceAfterBumpCents);
+    await expect(service.completeSession(session.id, 'web')).resolves.toMatchObject({
+      status: 'completed',
+    });
+    jest.useRealTimers();
   });
 });

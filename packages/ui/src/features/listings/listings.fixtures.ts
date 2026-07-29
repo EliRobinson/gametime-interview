@@ -31,8 +31,9 @@ export const LISTING_FIXTURES: Record<string, ListingFixture> = {
   },
   listing_3: {
     listingId: 'listing_3',
+    // Visible after the row so reviewers can spot the timed demo ticket.
     section: '118',
-    row: '8',
+    row: '8 · 10s price demo',
     seatCount: 3,
     isSuperDeal: false,
     bubble: { leftPct: 55, topPct: 58 },

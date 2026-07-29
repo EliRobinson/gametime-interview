@@ -40,6 +40,11 @@ describe('viewFromSession', () => {
       session: active,
       kind: 'ready',
     },
+    {
+      name: 'pending_payment',
+      session: { ...active, status: 'pending_payment' as const },
+      kind: 'processing',
+    },
   ])('maps $name', ({ session, kind }) => {
     expect(viewFromSession(session).kind).toBe(kind);
   });

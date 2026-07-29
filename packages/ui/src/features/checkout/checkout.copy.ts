@@ -2,6 +2,10 @@ export const CHECKOUT_COPY = {
   loading: 'Finding your checkout',
   loadingSubtitle: "So you don't have to.",
   pageTitle: 'Checkout',
+  /** Visible cancel word on wide web checkout headers (chevron rendered in UI). */
+  cancelLabel: 'Cancel',
+  /** Accessible name for the cancel control (icon-only on narrow screens). */
+  cancelAriaLabel: 'Cancel purchase',
   completePurchase: 'CONTINUE',
   completing: 'CONTINUING…',
   confirmNewPrice: 'CONFIRM NEW PRICE',

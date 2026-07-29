@@ -47,6 +47,19 @@ const colors = {
   /** Info notice on light surfaces */
   noticeBorder: '#DFE2E7',
 
+  /** Gametime Guarantee shield / stadium bowl (checkout + listings map) */
+  guarantee: '#6B4C9A',
+  stadiumBowl: '#9B8EC4',
+  stadiumBowlDark: '#3A2F55',
+  stadiumField: '#6FAE86',
+  stadiumFieldDark: '#1A3D2E',
+  stadiumStage: '#5A5A5A',
+  stadiumMapBg: '#E8EAEF',
+  stadiumMapBgDark: '#141418',
+
+  /** Inline links (promo, terms) */
+  link: '#2563EB',
+
   /** NativeWind `bg-primary` aliases — same hex as accent* */
   primary: accent,
   primaryLight: accentLight,

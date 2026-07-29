@@ -27,9 +27,9 @@ export default function RootLayout({ children }: { children: ReactNode }) {
           style={{
             backgroundColor: 'var(--color-canvas)',
             color: 'var(--color-on-dark)',
-            display: 'flex',
+            display: 'grid',
+            gridTemplateColumns: '1fr auto 1fr',
             alignItems: 'center',
-            justifyContent: 'space-between',
             padding: '0.85rem 1.5rem',
           }}
         >
@@ -52,6 +52,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
             </span>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <span style={{ fontWeight: 600, fontSize: '0.95rem' }}>Checkout</span>
             <span
               aria-hidden
               style={{
@@ -69,9 +70,8 @@ export default function RootLayout({ children }: { children: ReactNode }) {
             >
               ✓
             </span>
-            <span style={{ fontWeight: 600, fontSize: '0.95rem' }}>Checkout</span>
           </div>
-          <span style={{ width: 88 }} aria-hidden />
+          <span aria-hidden />
         </header>
         {children}
       </body>

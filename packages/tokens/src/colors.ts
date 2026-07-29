@@ -22,6 +22,15 @@ const { colors: paletteColors } = require('./palette.js') as {
     readonly bannerBg: '#FFF8DC';
     readonly bannerBorder: '#E5C84A';
     readonly noticeBorder: '#DFE2E7';
+    readonly guarantee: '#6B4C9A';
+    readonly stadiumBowl: '#9B8EC4';
+    readonly stadiumBowlDark: '#3A2F55';
+    readonly stadiumField: '#6FAE86';
+    readonly stadiumFieldDark: '#1A3D2E';
+    readonly stadiumStage: '#5A5A5A';
+    readonly stadiumMapBg: '#E8EAEF';
+    readonly stadiumMapBgDark: '#141418';
+    readonly link: '#2563EB';
     readonly primary: '#19CE85';
     readonly primaryLight: '#52DAA3';
     readonly primaryDark: '#15AF71';

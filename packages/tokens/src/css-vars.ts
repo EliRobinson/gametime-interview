@@ -20,6 +20,13 @@ export const cssVariables = `:root {
   --color-notice-border: ${colors.noticeBorder};
   --color-urgency: ${colors.urgency};
   --color-urgency-bg: ${colors.urgencyBg};
+  --color-urgency-border: ${colors.urgencyBorder};
+  --color-guarantee: ${colors.guarantee};
+  --color-stadium-bowl: ${colors.stadiumBowl};
+  --color-stadium-field: ${colors.stadiumField};
+  --color-stadium-stage: ${colors.stadiumStage};
+  --color-stadium-map-bg: ${colors.stadiumMapBg};
+  --color-link: ${colors.link};
   --color-cta: ${colors.cta};
   --color-text: ${colors.text};
   --color-on-dark: ${colors.onDark};

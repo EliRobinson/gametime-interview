@@ -20,6 +20,7 @@ let mockParams: Record<string, string | string[] | undefined> = { id: 'sess_1' }
 
 jest.mock('expo-router', () => ({
   useLocalSearchParams: () => mockParams,
+  useRouter: () => ({ back: jest.fn() }),
 }));
 
 const activeSession: CheckoutSession = {
@@ -70,7 +71,7 @@ describe('CheckoutScreen', () => {
     resolveResume(activeSession);
 
     await waitFor(() => expect(screen.getByTestId('complete-button')).toBeTruthy());
-    expect(screen.getByText('$42.00')).toBeTruthy();
+    expect(screen.getByText(/\$42\.00/)).toBeTruthy();
   });
 
   it('resumes reporting the mobile surface so the event log records the handoff', async () => {
@@ -153,7 +154,8 @@ describe('CheckoutScreen', () => {
     );
     // Acknowledging the new price surfaces it and hands the fan back the
     // Complete purchase decision — it must not auto-charge.
-    await waitFor(() => expect(screen.getByText('$55.00')).toBeTruthy());
+    await waitFor(() => expect(screen.getByTestId('acknowledged-price')).toBeTruthy());
+    expect(String(screen.getByTestId('acknowledged-price').props.children)).toMatch(/\$55\.00/);
     expect(screen.getByTestId('complete-button')).toBeTruthy();
     expect(complete).toHaveBeenCalledTimes(1);
   });

@@ -44,9 +44,9 @@ beforeEach(() => {
 });
 
 describe('CheckoutClient', () => {
-  it('renders the acknowledged price for an active session', () => {
+  it('renders the continue CTA for an active session', () => {
     render(<CheckoutClient initialSession={baseSession} />);
-    expect(screen.getByText(/\$42\.00/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /continue/i })).toBeInTheDocument();
   });
 
   it('shows a price-change banner when the live price differs from the acknowledged price', () => {
@@ -122,7 +122,7 @@ describe('CheckoutClient', () => {
     fireEvent.click(screen.getByRole('button', { name: /confirm new price/i }));
 
     await waitFor(() => expect(screen.getByRole('button', { name: /continue/i })).toBeEnabled());
-    expect(screen.getByTestId('acknowledged-price')).toHaveTextContent('$50.00');
+    expect(screen.getByTestId('price-notice')).toHaveTextContent(/\$50\.00/);
     expect(trpc.checkout.confirmPrice.mutate).toHaveBeenCalledWith({
       sessionId: 'sess_1',
       surface: 'web',

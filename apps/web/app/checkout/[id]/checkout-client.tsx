@@ -4,6 +4,7 @@ import type { CheckoutSession } from '@repo/api-contracts';
 import type { CheckoutView } from '@repo/ui';
 import {
   buildCheckoutShareUrls,
+  CHECKOUT_COPY,
   CheckoutCard,
   isShareableSession,
   priceUpdatedNotice,
@@ -39,6 +40,10 @@ function webOrigin(): string {
   // Prefer an explicit public origin so share links stay stable in local
   // multi-port setups (API :4000, web :3001) and in tests under jsdom.
   return process.env.NEXT_PUBLIC_WEB_ORIGIN ?? 'http://localhost:3001';
+}
+
+function showsTerms(view: CheckoutView): boolean {
+  return view.kind === 'ready' || view.kind === 'price_changed' || view.kind === 'failed';
 }
 
 export function CheckoutClient({ initialSession, priceChangedTo }: CheckoutClientProps) {
@@ -94,7 +99,19 @@ export function CheckoutClient({ initialSession, priceChangedTo }: CheckoutClien
   }
 
   return (
-    <>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      {showsTerms(view) ? (
+        <p
+          data-testid="checkout-terms"
+          style={{ margin: 0, color: 'var(--color-muted)', fontSize: 14 }}
+        >
+          {CHECKOUT_COPY.termsPrefix}
+          <span style={{ textDecoration: 'underline' }}>{CHECKOUT_COPY.termsOfUse}</span>
+          {CHECKOUT_COPY.termsAnd}
+          <span style={{ textDecoration: 'underline' }}>{CHECKOUT_COPY.privacyPolicy}</span>
+        </p>
+      ) : null}
+
       <CheckoutCard
         view={view}
         busy={busy}
@@ -105,10 +122,10 @@ export function CheckoutClient({ initialSession, priceChangedTo }: CheckoutClien
         onShare={onShare}
       />
       {shareFeedback ? (
-        <p data-testid="share-feedback" style={{ marginTop: 12, fontSize: 14 }}>
+        <p data-testid="share-feedback" style={{ marginTop: 0, fontSize: 14 }}>
           {shareFeedback}
         </p>
       ) : null}
-    </>
+    </div>
   );
 }

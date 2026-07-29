@@ -18,7 +18,7 @@ const activeSession: CheckoutSession = {
 const noop = () => {};
 
 describe('CheckoutCard', () => {
-  it('shows price and complete purchase for ready view', () => {
+  it('shows complete purchase CTA for ready view without resume hero', () => {
     render(
       <CheckoutCard
         view={{ kind: 'ready', session: activeSession, notice: null }}
@@ -28,9 +28,10 @@ describe('CheckoutCard', () => {
       />,
     );
 
-    expect(screen.getByTestId('acknowledged-price')).toBeTruthy();
     expect(screen.getByTestId('complete-button')).toBeTruthy();
     expect(screen.getByText(CHECKOUT_COPY.completePurchase)).toBeTruthy();
+    expect(screen.queryByText(/resumed checkout/i)).toBeNull();
+    expect(screen.queryByText(/finish your checkout/i)).toBeNull();
   });
 
   it('shows confirm price CTA for price_changed', () => {

@@ -8,7 +8,6 @@ import { Notice } from '../../atoms/Notice';
 import { Spinner } from '../../atoms/Spinner';
 import { Text } from '../../atoms/Text';
 import { Panel } from '../../molecules/Panel';
-import { PriceRow } from '../../molecules/PriceRow';
 import type { ThemeName } from '../../theme';
 import { ThemeProvider, useTheme } from '../../theme';
 import { CHECKOUT_COPY } from './checkout.copy';
@@ -19,7 +18,7 @@ type CheckoutCardProps = {
   busy: boolean;
   onComplete: (session: CheckoutSession) => void;
   onConfirmPrice: (session: CheckoutSession) => void;
-  /** Defaults to light (web). Pass `dark` for Gametime mobile canvas. */
+  /** Defaults to light (web). Pass `dark` only when intentionally theming dark. */
   theme?: ThemeName;
   /** When set, shows Share tickets for resumable sessions. */
   shareWebUrl?: string;
@@ -27,6 +26,10 @@ type CheckoutCardProps = {
   onShare?: (payload: { webUrl: string; mobileUrl: string }) => void;
 };
 
+/**
+ * Continuity state + primary actions. Page chrome (summary, deal, guarantee)
+ * is composed by each app around this card.
+ */
 export function CheckoutCard({
   view,
   busy,
@@ -74,9 +77,6 @@ function CheckoutCardBody({
     case 'ready':
       return (
         <View style={{ gap: theme.space[4] }}>
-          <Text variant="eyebrow">{CHECKOUT_COPY.resumedEyebrow}</Text>
-          <Text variant="title">{CHECKOUT_COPY.finishTitle}</Text>
-          <PriceRow amountCents={view.session.acknowledgedPrice} testID="acknowledged-price" />
           {view.notice ? <Notice testID="price-notice">{view.notice}</Notice> : null}
           <Button
             onPress={() => onComplete(view.session)}

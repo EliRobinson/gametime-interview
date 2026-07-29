@@ -1,4 +1,4 @@
-import type { CheckoutSession } from '@repo/api-contracts';
+import type { ResumeSessionResult } from '@repo/api-contracts';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
 
@@ -10,10 +10,10 @@ export type ResumeFailure = {
   detail: string;
 };
 
-export type ResumeResult = { ok: true; session: CheckoutSession } | ResumeFailure;
+export type ResumeResult = ({ ok: true } & ResumeSessionResult) | ResumeFailure;
 
 type TrpcResponseBody = {
-  result?: { data?: CheckoutSession };
+  result?: { data?: ResumeSessionResult };
   error?: { message?: string; data?: { code?: string } };
 };
 
@@ -66,8 +66,10 @@ export async function resumeSession(sessionId: string): Promise<ResumeResult> {
     return failure('UNREACHABLE');
   }
 
-  const session = body.result?.data;
-  if (response.ok && session) return { ok: true, session };
+  const data = body.result?.data;
+  if (response.ok && data?.session) {
+    return { ok: true, session: data.session, livePriceCents: data.livePriceCents ?? null };
+  }
 
   return failure(body.error?.data?.code ?? 'INTERNAL_SERVER_ERROR');
 }

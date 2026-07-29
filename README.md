@@ -1,72 +1,50 @@
 # Notes about the demo
 
-- Cross-surface resume in this demo is **web ↔ web** (copy the link into another
-  tab/browser) and **mobile → web** (native share/copy hands the fan a web
-  checkout URL). I did not build a seamless **web → mobile** handoff: a browser
-  cannot detect whether an iOS/Android simulator (or Expo) is running on the
-  reviewer’s machine, and custom-scheme deep links (`mobileweb://…`) only work
-  when that OS has registered the scheme. An earlier **Open in app** control on
-  web (navigate / `window.open` to `mobileweb://…`) proved too volatile — it
-  either navigated the checkout page away or failed silently depending on the
-  browser and whether Expo had claimed the scheme — so it was removed. Use
-  `xcrun simctl openurl` (below) for local deep-link demos instead.
-- I also wanted to pressure-test a quickly built React Native demo alongside
-  shared UI and a monorepo with multiple apps. This started from a GitHub
-  template I maintain, with a decent amount of cleanup so the shared packages
-  actually show code reuse between the React Native app and the web app.
-- The core sharing/resume design came together quickly; I spent extra time on
-  presentation so the demo feels attractive and demonstrates mobile ↔ web
-  parity, not just a working handoff.
-- **Why go past a “minimal UI” slice?** The prompt’s time box (~2–3 hours)
-  prefers a focused end-to-end continuity path over a broad checkout clone. I
-  still invested past that floor on purpose: a bare curl-and-JSON demo proves
-  the state machine, but a product-shaped shell (selection → checkout, shared
-  tokens/UI, Gametime-like visual hierarchy) is a better signal of how I attack
-  _complicated_ product + systems problems — domain boundaries, cross-surface
-  consistency, and reviewer-friendly UX — not only whether `resume` returns
-  `200`. Treat the polish as intentional flex, not scope creep that replaced the
-  continuity core.
+- **Resume directions in this demo:** **web ↔ web** (same link in another tab/browser)
+  and **mobile → web** (native share/copy hands the fan a web checkout URL). There is no
+  seamless **web → mobile** handoff from the browser — custom schemes (`mobileweb://…`)
+  only work when the OS has registered them. For local deep-link demos use
+  `xcrun simctl openurl` (below). Shared UI aims for **checkout parity** across surfaces;
+  that is not the same as a bidirectional handoff product.
+- Built from a personal RN + web monorepo template so shared packages (`@repo/ui`,
+  tokens, contracts) actually reuse between Next and Expo — not two parallel UIs on the
+  same API.
+- Continuity core (session machine, resume, CAS, price reconfirm) came first; the
+  product-shaped shell (selection → checkout, Gametime-like hierarchy) is deliberate
+  polish on top of that slice, not a substitute for it. Prompt time box was ~2–3 hours;
+  I invested past that floor on presentation and shared UI.
+- **AI-assisted trail:** session notes under [`docs/`](./docs/)
+  (`session_<date>_<time>_<slug>.md`) record planning and implementation passes. There
+  are many of them — skim for decisions if useful; prefer this README, [`CONTEXT.md`](./CONTEXT.md),
+  and [`docs/decisions.md`](./docs/decisions.md) as the review path. Notes are not a
+  substitute for the code.
 
-**Time trade-offs (kept the continuity slice honest, deferred production depth):**
+**Deferred on purpose (continuity slice stays honest):**
 
-- In-memory session store and deterministic payment/inventory fakes — fine per
-  the prompt, zero reviewer setup, and the CAS race is still real in one
-  process. No Prisma session model, no real Stripe/inventory SDKs, no auth.
-- Surfaces discover changes by acting (resume / complete), not via push — with
-  one demo exception: **Sec 118 · Row 8 · 10s price demo** (`listing_3`) ages its _held_
-  price after 10 seconds so you can watch reconfirmation live. Catalog price
-  stays at the seed if you leave and browse again; a new session resets the
-  timer. Other failure modes (decline, sold-out) still need tests /
-  `forceOutcome` / `releaseListing`.
-- No automated create-on-web / complete-on-mobile E2E; unit tests cover the
-  state machine and conflict path, and the handoff is verified by hand.
-- Fixed 10-minute session TTL, two-tap price confirm then buy (not one-tap),
-  and share via opaque session id only — deliberate scope cuts, not unfinished
-  stubs.
+- In-memory session store + deterministic payment/inventory fakes (prompt-allowed). No
+  Prisma session model, real Stripe/inventory SDKs, or auth.
+- Surfaces discover changes by acting (resume / complete), not via push — except the
+  live **Sec 118 · Row 8 · 10s price demo** (`listing_3`), which ages its _held_ price
+  after 10s so reconfirmation is visible. Catalog seed price is unchanged if you leave
+  and browse again; a new session resets the timer.
+- Decline / sold-out paths are covered in unit tests via `FakePaymentProvider.forceOutcome`
+  and `FakeInventoryProvider.releaseListing` (process-local helpers — **not** exposed over
+  HTTP). The 10s price bump is the only failure mode you can drive from the UI without
+  tests.
+- No automated create-on-web / complete-on-mobile E2E. Unit tests cover the state machine
+  and conflict path; handoff is verified by hand. Playwright/Maestro scaffolds from the
+  template are not continuity coverage.
+- Fixed 10-minute session TTL, two-tap price confirm then buy, share via opaque session
+  id only. Session TTL lapse (request-time or in-process `SessionExpirySweeper`) also
+  releases the inventory hold; the sweeper is single-process demo glue, not a
+  multi-replica job runner.
 
-**Beyond the basic ask (to raise demo quality):**
+**Beyond the basic ask:**
 
-- Ticket landing with listing selection and a static stadium map so the flow
-  starts like a product, not a bare “create session” curl.
-- Shared design tokens + `@repo/ui` checkout/listings so web (Next SSR) and
-  native actually share components — not two parallel UIs with the same API.
-- Visual shell aligned to Gametime-style mocks (layout, hierarchy, share UX)
-  while keeping payment/promo chrome decorative and non-functional.
-- Domain write-up (`CONTEXT.md`), decision log (`docs/decisions.md`), and
-  structured instrumentation so the _why_ of the state machine is reviewable.
-
-**AI-assisted engineering trail:** session notes under [`docs/`](./docs/)
-(`session_<date>_<time>_<slug>.md`) record planning, trade-offs, and
-implementation passes with AI. They are meant to show how I use assisted
-engineering to move a product forward quickly and refine existing work — not
-as a substitute for the code or the domain docs above.
-
----
-
-# RN + Web Template
-
-One codebase that ships to iOS, Android, and web, backed by a fully
-type-safe API. Use this as a GitHub template for new projects.
+- Ticket landing with listing selection and a static stadium map.
+- Shared design tokens + `@repo/ui` so Next SSR and native share components.
+- Visual shell aligned to Gametime-style mocks; payment/promo chrome is decorative.
+- Domain write-up (`CONTEXT.md`), decision log (`docs/decisions.md`), structured event log.
 
 ---
 
@@ -87,6 +65,7 @@ URL so resume does not depend on the app already being installed.
 | `CheckoutService` state machine       | `apps/api/src/domain/checkout-service.ts`             |
 | In-memory session store (CAS)         | `apps/api/src/domain/session-store.ts`                |
 | Stubbed inventory + payment           | `apps/api/src/domain/{inventory,payment}-provider.ts` |
+| Session TTL sweeper (releases holds)  | `apps/api/src/domain/session-expiry-sweeper.ts`       |
 | Structured event log                  | `apps/api/src/domain/events.ts`                       |
 | tRPC surface                          | `apps/api/src/routers/checkout.ts`                    |
 | Web checkout (SSR)                    | `apps/web/app/checkout/[id]/`                         |
@@ -102,7 +81,7 @@ how it's built and how to run it.
 
 ```bash
 pnpm install
-cp apps/api/.env.example apps/api/.env   # DATABASE_URL only matters for the users demo route
+cp apps/api/.env.example apps/api/.env   # optional; DATABASE_URL only matters for the users demo route
 
 pnpm dev              # all three via Turborepo (Expo keys won't work — no TTY)
 # Prefer two terminals when you need Expo interactivity (r / j / etc.):
@@ -130,9 +109,10 @@ superjson transformer wired up, so there is no `{"json": ...}` envelope.
 
 ## The state model
 
-`created → active → pending_payment → completed`, with `expired` and `failed`
-as the off-ramps. `failed` is retryable (it transitions back through
-`pending_payment`); `completed` and `expired` are terminal.
+`active → pending_payment → completed`, with `expired` and `failed` as the
+off-ramps. `failed` is retryable (retry claims through `pending_payment` again);
+`completed` and `expired` are terminal. There is no separate `created` status —
+create writes `active` with the inventory hold already placed.
 
 The server is the only writer. A surface never computes state locally — it
 posts an intent (`resume`, `confirmPrice`, `complete`) and renders whatever
@@ -157,6 +137,12 @@ session also carries an `expiryReason` (`session_lapsed` | `hold_released`) —
 without it the resume path couldn't tell the two apart, only the write path
 could. Both surfaces read it to pick the right message.
 
+When the session clock lapses — on the next resume/complete/confirm touch or via
+the in-process `SessionExpirySweeper` (~30s) — checkout also `releaseHold`s and
+marks `session_lapsed`. Explicit abandon (`checkout.release`) drops the hold and
+marks `hold_released`. The sweeper is single-process demo glue, not a
+multi-replica job runner; mid-charge (`pending_payment`) is skipped.
+
 **Price changes.** The session tracks `acknowledgedPrice` separately from the
 listing's live price. A mismatch blocks completion with `PRECONDITION_FAILED`
 until the fan explicitly confirms via `checkout.confirmPrice`. Silent repricing
@@ -175,10 +161,11 @@ non-actionable **processing** view (no Buy CTA) — both when this surface just
 pressed Buy and when resume finds an in-flight claim — while `CONFLICT` maps to
 **claimed elsewhere**. Same “don’t buy again” outcome; different trust copy.
 
-**Instrumentation.** Every continuity-relevant transition emits a structured
-event (`session_created`, `session_resumed`, `price_reconfirmed`,
-`session_expired`, `session_completed`, `session_failed`) carrying the surface,
-so a cross-surface handoff is reconstructable from the log.
+**Instrumentation.** Continuity-relevant transitions emit structured events
+(`session_created`, `session_resumed`, `price_reconfirmed`, `session_expired`,
+`session_released`, `session_completed`, `session_failed`) carrying the surface
+where relevant, so a cross-surface handoff is reconstructable from the in-process
+log. There is no metrics API or funnel export in this prototype.
 
 ### Error codes
 
@@ -196,12 +183,11 @@ _distinguishable_, and that `CONFLICT` means only one thing.
 
 ## What appears before hydration (web)
 
-`/checkout/:id` is a React Server Component. It fetches the session server-side
-and renders the listing, status, and price into the HTML document — so the fan
-opening a resumed link sees real state in the first paint, with no spinner and
-no loading flash, before any client JS runs. The client component takes over
-afterward for the interactive parts (confirm price, complete) starting from that
-same server-rendered session, so hydration is seamless rather than a re-fetch.
+`/checkout/:id` is a React Server Component. It resumes the session server-side
+and passes that payload into the client tree, so the first HTML paint already
+includes listing, status, and price — no client mount spinner and no hydration
+re-fetch. The client then owns confirm / complete interactions from that same
+session.
 
 ## Tradeoffs
 
@@ -210,162 +196,73 @@ same server-rendered session, so hydration is seamless rather than a re-fetch.
   process, one map. Against a real DB this becomes a conditional
   `UPDATE ... WHERE status = $expected`, which is the same idea with the same
   guarantee; the `SessionStore` interface is the seam for that swap.
-- **Deterministic fakes over random failures.** `FakePaymentProvider.forceOutcome`
-  and `FakeInventoryProvider.setPrice` let tests and a live demo drive any state
-  transition on command. Randomized stubs would make the interesting paths
-  unreproducible.
+- **Deterministic fakes over random failures.** `forceOutcome`, `setPrice`, and
+  `releaseListing` on the fake providers let unit tests drive any transition on
+  command. The live UI demo path is the timed hold bump on `listing_3`; the
+  other knobs are not HTTP-exposed.
 - **No auth.** Deliberate, per the domain model — the session ID is the
   capability. Real deployment would still want the ID unguessable (it is) and
-  rate-limited (it isn't).
+  rate-limited (it isn't). Auth was not stubbed behind an interface; the prompt
+  listed it alongside payment/inventory, and the capability-id model is the
+  explicit substitute for this slice.
 - **Resume is pull-based.** A surface learns about changes when it acts, not
   when they happen.
 
 ## With more time
 
+- Multi-replica session expiry (durable job / leader election) instead of the
+  in-process sweeper, plus an indexed `expiresAt` query.
 - Push instead of pull — SSE or a websocket so a price change or a completion on
-  the other device updates this one live, rather than being discovered on the
-  next action.
-- Prisma-backed session store with a real conditional update, plus a background
-  sweeper to expire sessions rather than expiring lazily on read.
-- Playwright E2E driving an actual cross-surface handoff — create on web,
-  complete on mobile — which is the one thing the unit tests can only simulate.
-- Real idempotency keys on the payment call, so a retry after a network timeout
-  can't double-charge even if the process dies mid-flight.
+  the other device updates this one live.
+- Prisma-backed session store with a real conditional update.
+- Playwright (or similar) E2E for create-on-web / complete-on-mobile.
+- Real idempotency keys on the payment call so a retry after a network timeout
+  can't double-charge if the process dies mid-flight.
+- Cleaner overall UI, I definitely spent a good amount of time spitting and polishing because I hold myself to a high standard, however I would probably have done more real Gametime matching for overall look and feel.
+- Made the stadium (I changed to use the actual map you use on your website) scale better with all screen sizes, responsively, and on the mobile app too
+- True web to mobile deep-linking
 
 ---
 
 ## Stack
 
-| Layer          | Choice                                                |
-| -------------- | ----------------------------------------------------- |
-| Monorepo       | pnpm workspaces + Turborepo                           |
-| Mobile + Web   | Expo Router (React Native Web) — one app, 3 targets   |
-| Styling        | NativeWind (Tailwind for RN + web)                    |
-| State (server) | TanStack Query via tRPC                               |
-| API            | Fastify + tRPC                                        |
-| Database       | Prisma + Postgres                                     |
-| Validation     | Zod schemas in `@repo/api-contracts`                  |
-| Lint/format    | ESLint (flat config) + Prettier + Husky + lint-staged |
-| Unit/component | Jest + React Native Testing Library                   |
-| E2E (web)      | Playwright                                            |
-| E2E (mobile)   | Maestro                                               |
-| CI             | GitHub Actions + Turborepo remote caching             |
-| Versioning     | Changesets (per-package changelogs, no npm publish)   |
-| Deploy         | EAS (mobile), Vercel/EAS Hosting (web)                |
-
-Suggested next adds (not wired yet): Clerk (or another auth provider),
-Zustand for client state, React Hook Form for forms.
+| Layer       | Choice                                                               |
+| ----------- | -------------------------------------------------------------------- |
+| Monorepo    | pnpm workspaces + Turborepo                                          |
+| Web         | Next.js App Router (`apps/web`) — SSR checkout                       |
+| Mobile      | Expo Router (`apps/mobile-web`) — iOS / Android                      |
+| Shared UI   | `@repo/ui` + `@repo/tokens` (NativeWind)                             |
+| API         | Fastify + tRPC (`apps/api`)                                          |
+| Validation  | Zod in `@repo/api-contracts`                                         |
+| Sessions    | In-memory store (Prisma/Postgres exists for a users demo route only) |
+| Lint/format | ESLint + Prettier + Husky + lint-staged                              |
+| Tests       | Jest + React Native Testing Library; SSR markup tests on web         |
 
 ## Structure
 
 ```
 apps/
-  mobile-web/     Expo Router app — iOS, Android, and web from one codebase
-  api/            Fastify + tRPC server, Prisma, router implementation
+  web/            Next.js — SSR checkout + selection landing
+  mobile-web/     Expo Router — native checkout + deep links
+  api/            Fastify + tRPC, checkout domain, optional Prisma users demo
 packages/
-  ui/             Shared components (NativeWind)
-  api-contracts/  Shared Zod schemas — the contract between client and server
-  utils/          Shared helpers (use when you have cross-app pure logic)
+  ui/             Shared checkout/listings components (NativeWind)
+  tokens/         Shared design tokens
+  api-contracts/  Shared Zod schemas (client ↔ server contract)
+  utils/          Shared pure helpers
   config/         Shared ESLint, Tailwind, and tsconfig presets
 ```
 
-Ownership to copy when you fork:
-
-- **Schemas** live in `packages/api-contracts` (imported by the API, and by
-  the client when you build forms).
-- **Router + Prisma** live in `apps/api`. The client type-imports
-  `AppRouter` from `api` — type-only, so Metro never bundles server code.
-- Add a procedure in `apps/api/src/router.ts` and a schema in
-  `packages/api-contracts` when the input/output shape is shared.
-
-## Getting started
-
-```bash
-pnpm install
-cp apps/api/.env.example apps/api/.env   # set DATABASE_URL
-pnpm --filter api prisma:generate
-pnpm --filter api prisma:migrate
-
-pnpm dev              # all three via Turborepo (Expo keys won't work — no TTY)
-pnpm dev:servers      # api :4000 · web :3001
-pnpm dev:mobile-web   # Expo with a real TTY (use alongside dev:servers)
-# Or: pnpm dev:api / pnpm dev:web
-```
+- **Schemas** live in `packages/api-contracts`.
+- **Router + domain** live in `apps/api`. Clients type-import `AppRouter` only —
+  Metro/Next never bundle server code.
+- **SSR** is already owned by `apps/web`; Expo’s web target is secondary.
 
 ## Common commands
 
 ```bash
 pnpm lint          # ESLint across every app/package
 pnpm typecheck     # tsc --noEmit across every app/package
-pnpm test          # Jest unit + component tests
-pnpm test:e2e:web  # Playwright, against the web build
-pnpm --filter mobile-web test:e2e:mobile   # Maestro, needs a simulator/device
+pnpm test          # Jest unit + component tests (continuity coverage lives here)
 pnpm format        # Prettier write
 ```
-
-## Versioning changes (Changesets)
-
-After any change worth noting, run:
-
-```bash
-pnpm changeset
-```
-
-It'll ask which package(s) changed and whether it's a patch/minor/major,
-then write a small file in `.changeset/`. Commit that alongside your PR.
-When it's merged to `main`, the Release workflow (`.github/workflows/release.yml`)
-opens/updates a "Version Packages" PR that bumps versions and writes
-CHANGELOGs; merging _that_ PR is what finalizes a release. Nothing gets
-published to npm — this is an app template, so changesets are just used
-to keep a clean changelog per package as things evolve.
-
-## Using this as a template
-
-1. Rename `mobileweb` / `com.yourorg.mobileweb` in `apps/mobile-web/app.json`.
-2. Set up EAS (`eas init`) for mobile builds/submits.
-3. Point `DATABASE_URL` at a real Postgres instance (Supabase, Neon, RDS, etc.).
-4. Wire up auth in `apps/api/src/context.ts` and add a `protectedProcedure`
-   in `apps/api/src/trpc.ts`.
-5. Add a `TURBO_TOKEN`/`TURBO_TEAM` secret in GitHub if you want Turborepo
-   remote caching in CI (optional but speeds PRs up a lot).
-
-## ✅ Before committing this to the template repo
-
-Go through this list before you mark the repo "Template repository" on GitHub:
-
-- [ ] Run `pnpm install` locally at least once and commit the resulting
-      `pnpm-lock.yaml` — an unlocked template will drift immediately.
-- [ ] Run `pnpm lint`, `pnpm typecheck`, and `pnpm test` and confirm all pass clean.
-- [ ] Delete this checklist section (and the "Using this as a template"
-      section above) once you've actually done those steps, or leave it —
-      your call, but don't ship it half-followed.
-- [ ] Replace every occurrence of `mobileweb` / `com.yourorg.mobileweb`
-      (in `app.json`) with your real app name and bundle ID.
-- [ ] Replace `yourorg` in `apps/mobile-web/e2e/maestro/flow.yaml`'s `appId` too.
-- [ ] Decide on a real Postgres provider and update `apps/api/.env.example`
-      accordingly (don't commit a real `.env` — it's gitignored, keep it that way).
-- [ ] Confirm `.gitignore` covers your provider's local artifacts (e.g. add
-      `.vercel/`, `.eas/` if those tools generate local config you don't want committed).
-- [ ] If you want Turborepo remote caching in CI, add `TURBO_TOKEN` and
-      `TURBO_TEAM` as GitHub Actions secrets — otherwise CI still works,
-      just without cross-run caching.
-- [ ] If you want the Release workflow to actually open PRs, confirm
-      Actions has "Read and write permissions" enabled under
-      **Settings → Actions → General → Workflow permissions**.
-- [ ] Add a LICENSE file appropriate for how this template will be reused.
-- [ ] Smoke-test all three targets once end-to-end: `pnpm dev:web` in a
-      browser, `pnpm dev:ios`/`dev:android` in a simulator, and
-      `pnpm dev:api` responding on `/health`.
-- [ ] Squash/clean the git history so the template's first commit is tidy —
-      nobody forking it needs your scaffolding commits.
-
-## Extending
-
-- **New shared component:** add it to `packages/ui/src`, export from
-  `packages/ui/src/index.ts`. It's usable from `apps/mobile-web` immediately.
-- **New API endpoint:** add a Zod schema to `packages/api-contracts/src/schemas`
-  when the shape is shared; add the procedure in `apps/api/src/router.ts`
-  and talk to Prisma via `ctx.users` (or a new store on `Context`).
-- **Need real SSR/SEO for web later:** the `ui`/`api-contracts`/`utils`
-  packages don't know or care what renders them — you can swap the web
-  target for a Next.js app without touching shared code.

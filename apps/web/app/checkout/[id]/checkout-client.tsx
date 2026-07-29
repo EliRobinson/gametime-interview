@@ -1,24 +1,29 @@
 'use client';
 
 import type { CheckoutSession } from '@repo/api-contracts';
-import { DEMO_PRICE_CHANGE, msUntilDemoPriceBump } from '@repo/api-contracts';
+import { msUntilDemoPriceBump } from '@repo/api-contracts';
 import type { CheckoutView } from '@repo/ui';
 import {
   buildCheckoutShareUrls,
   CHECKOUT_COPY,
   CheckoutCard,
+  CheckoutTerms,
+  ContactRow,
   DemoPriceCountdown,
+  GuaranteePanel,
+  isDecorativeSessionStatus,
   isShareableSession,
   mapCheckoutPresentation,
-  priceUpdatedNotice,
-  viewFromErrorCode,
-  viewFromSession,
+  sessionFromView,
+  showsCheckoutActions,
+  useCheckoutActions,
+  viewFromResume,
 } from '@repo/ui';
-import { trpcErrorCode } from '@repo/utils';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { trpc } from '#web/trpc-client';
 
+import { useCheckoutLeaveMode } from '../../checkout-leave-mode';
 import { checkoutPageStyles as styles } from './checkout-page-styles';
 import { OrderSummary } from './order-summary';
 
@@ -29,31 +34,14 @@ export type CheckoutClientProps = {
    * a loading flash.
    */
   initialSession: CheckoutSession;
-  /** Live price, in cents, when the server already knows it diverged. */
-  priceChangedTo?: number;
+  /** Live hold price from SSR resume; drives price_changed when it diverges. */
+  livePriceCents?: number | null;
 };
-
-function initialView(session: CheckoutSession, priceChangedTo?: number): CheckoutView {
-  const base = viewFromSession(session);
-  if (base.kind !== 'ready') return base;
-  if (priceChangedTo !== undefined) {
-    return { kind: 'price_changed', session, newPriceCents: priceChangedTo };
-  }
-  return base;
-}
 
 function webOrigin(): string {
   // Prefer an explicit public origin so share links stay stable in local
   // multi-port setups (API :4000, web :3001) and in tests under jsdom.
   return process.env.NEXT_PUBLIC_WEB_ORIGIN ?? 'http://localhost:3001';
-}
-
-function showsTerms(view: CheckoutView): boolean {
-  return view.kind === 'ready' || view.kind === 'price_changed' || view.kind === 'failed';
-}
-
-function sessionFromView(view: CheckoutView): CheckoutSession | null {
-  return 'session' in view && view.session ? view.session : null;
 }
 
 function isLeavingCheckout(href: string, currentPathname: string): boolean {
@@ -66,15 +54,36 @@ function isLeavingCheckout(href: string, currentPathname: string): boolean {
   }
 }
 
-function isDecorativeStatus(status: CheckoutSession['status']): boolean {
-  return status === 'created' || status === 'active' || status === 'failed';
-}
+const SURFACE = 'web' as const;
 
-export function CheckoutClient({ initialSession, priceChangedTo }: CheckoutClientProps) {
-  const [view, setView] = useState<CheckoutView>(() => initialView(initialSession, priceChangedTo));
-  const [busy, setBusy] = useState(false);
+export function CheckoutClient({ initialSession, livePriceCents = null }: CheckoutClientProps) {
+  const [view, setView] = useState<CheckoutView>(() =>
+    viewFromResume(initialSession, livePriceCents),
+  );
   const [shareFeedback, setShareFeedback] = useState<string | null>(null);
   const allowUnloadRef = useRef(false);
+  const { setLeaveMode } = useCheckoutLeaveMode();
+
+  // Header leave control: "Cancel" while shopping, "Done" only after purchase.
+  useEffect(() => {
+    setLeaveMode(view.kind === 'completed' ? 'done' : 'cancel');
+    return () => setLeaveMode('cancel');
+  }, [setLeaveMode, view.kind]);
+
+  const mutations = useMemo(
+    () => ({
+      complete: trpc.checkout.complete.mutate,
+      confirmPrice: trpc.checkout.confirmPrice.mutate,
+      resume: trpc.checkout.resume.mutate,
+    }),
+    [],
+  );
+
+  const { busy, completeOrder, confirmNewPrice, refreshFromResume } = useCheckoutActions({
+    surface: SURFACE,
+    mutations,
+    setView,
+  });
 
   const shareSession =
     'session' in view && view.session && isShareableSession(view.session) ? view.session : null;
@@ -94,34 +103,13 @@ export function CheckoutClient({ initialSession, priceChangedTo }: CheckoutClien
     previousUnitPriceCents,
   });
   const showDecorative =
-    isDecorativeStatus(summarySession.status) && presentation.showDecorativeChrome;
+    isDecorativeSessionStatus(summarySession.status) && presentation.showDecorativeChrome;
   const showDemoCountdown = view.kind === 'ready' && msUntilDemoPriceBump(view.session) !== null;
 
-  // Demo listing: surface the price-change UI when the hold ages past the demo
-  // window so a reviewer can watch reconfirmation without calling setPrice by hand.
-  useEffect(() => {
+  const onDemoPriceExpire = useCallback(() => {
     if (view.kind !== 'ready') return;
-    const delayMs = msUntilDemoPriceBump(view.session);
-    if (delayMs === null) return;
-
-    const sessionId = view.session.id;
-    const timer = window.setTimeout(() => {
-      setView((current) => {
-        if (current.kind !== 'ready' || current.session.id !== sessionId) return current;
-        // Fan already confirmed the demo bump — don't bounce them back.
-        if (current.session.acknowledgedPrice === DEMO_PRICE_CHANGE.heldPriceAfterBumpCents) {
-          return current;
-        }
-        return {
-          kind: 'price_changed',
-          session: current.session,
-          newPriceCents: DEMO_PRICE_CHANGE.heldPriceAfterBumpCents,
-        };
-      });
-    }, delayMs);
-
-    return () => window.clearTimeout(timer);
-  }, [view]);
+    void refreshFromResume(view.session.id);
+  }, [refreshFromResume, view]);
 
   useEffect(() => {
     if (!holdSessionId) return;
@@ -131,7 +119,7 @@ export function CheckoutClient({ initialSession, priceChangedTo }: CheckoutClien
 
     async function releaseHold(): Promise<void> {
       try {
-        await trpc.checkout.release.mutate({ sessionId, surface: 'web' });
+        await trpc.checkout.release.mutate({ sessionId, surface: SURFACE });
       } catch {
         // Fan is leaving either way — don't block navigation on release errors.
       }
@@ -199,44 +187,6 @@ export function CheckoutClient({ initialSession, priceChangedTo }: CheckoutClien
     };
   }, [holdSessionId]);
 
-  async function completeOrder(session: CheckoutSession) {
-    if (busy) return;
-    setBusy(true);
-    // Claim UI immediately — never leave Buy enabled while the server holds
-    // pending_payment (even for the brief window before the response lands).
-    setView({ kind: 'processing', session: { ...session, status: 'pending_payment' } });
-    try {
-      const next = await trpc.checkout.complete.mutate({ sessionId: session.id, surface: 'web' });
-      setView(viewFromSession(next));
-    } catch (error) {
-      setView(viewFromErrorCode(trpcErrorCode(error), session));
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function confirmNewPrice(session: CheckoutSession) {
-    if (busy) return;
-    setBusy(true);
-    try {
-      const next = await trpc.checkout.confirmPrice.mutate({
-        sessionId: session.id,
-        surface: 'web',
-      });
-      setView(
-        viewFromSession(
-          next,
-          priceUpdatedNotice(next.acknowledgedPrice),
-          session.acknowledgedPrice,
-        ),
-      );
-    } catch (error) {
-      setView(viewFromErrorCode(trpcErrorCode(error), session));
-    } finally {
-      setBusy(false);
-    }
-  }
-
   async function onShare(payload: { webUrl: string; mobileUrl: string }) {
     try {
       await navigator.clipboard.writeText(payload.webUrl);
@@ -249,31 +199,21 @@ export function CheckoutClient({ initialSession, priceChangedTo }: CheckoutClien
   return (
     <div style={styles.grid} className="checkout-grid">
       <section style={styles.card}>
-        <div style={styles.contactRow} data-testid="checkout-contact-row">
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <p style={styles.contactLabel}>{CHECKOUT_COPY.contactLabel}</p>
-            {showDemoCountdown ? (
-              <DemoPriceCountdown
-                listingId={view.session.listingId}
-                createdAt={view.session.createdAt}
-              />
-            ) : null}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <div style={{ flex: 1 }}>
+            <ContactRow />
           </div>
-          <p style={styles.contactEmail}>{CHECKOUT_COPY.contactEmail}</p>
+          {showDemoCountdown ? (
+            <DemoPriceCountdown
+              listingId={view.session.listingId}
+              createdAt={view.session.createdAt}
+              onExpire={onDemoPriceExpire}
+            />
+          ) : null}
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          {showsTerms(view) ? (
-            <p
-              data-testid="checkout-terms"
-              style={{ margin: 0, color: 'var(--color-muted)', fontSize: 14 }}
-            >
-              {CHECKOUT_COPY.termsPrefix}
-              <span style={{ textDecoration: 'underline' }}>{CHECKOUT_COPY.termsOfUse}</span>
-              {CHECKOUT_COPY.termsAnd}
-              <span style={{ textDecoration: 'underline' }}>{CHECKOUT_COPY.privacyPolicy}</span>
-            </p>
-          ) : null}
+          {showsCheckoutActions(view) ? <CheckoutTerms /> : null}
 
           <CheckoutCard
             view={view}
@@ -291,21 +231,7 @@ export function CheckoutClient({ initialSession, priceChangedTo }: CheckoutClien
           ) : null}
         </div>
 
-        {showDecorative ? (
-          <div style={styles.guarantee} data-testid="guarantee-panel">
-            <div style={styles.guaranteeCopy}>
-              <p style={styles.guaranteeTitle}>{CHECKOUT_COPY.guaranteeTitle}</p>
-              {CHECKOUT_COPY.guaranteeItems.map((item) => (
-                <p key={item} style={styles.guaranteeItem}>
-                  ✓ {item}
-                </p>
-              ))}
-            </div>
-            <div style={styles.guaranteeShield} aria-hidden>
-              ✓
-            </div>
-          </div>
-        ) : null}
+        {showDecorative ? <GuaranteePanel /> : null}
       </section>
 
       <OrderSummary session={summarySession} presentation={presentation} />

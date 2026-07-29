@@ -88,7 +88,9 @@ sessions, and time-to-complete after a price reconfirmation vs. without one.
 ## 5. Polling on resume instead of push updates
 
 **What we did:** Both `apps/web` and `apps/mobile-web` fetch session state once, on load /
-resume — no live updates while a fan sits on the checkout screen.
+resume — no live updates while a fan sits on the checkout screen, except the demo listing:
+when `DemoPriceCountdown` hits zero it re-calls `checkout.resume` so the live hold price
+comes from the server (single price authority) rather than a client-side hardcoded bump.
 
 **Why:** Simplest thing that satisfies "how do web and mobile know whether a session is
 still valid" — check at the moment that matters (resume, complete) rather than continuously.
@@ -259,9 +261,12 @@ fan-facing tap.
 
 ## 14. Share tickets uses session id as the capability (no auth on resume links)
 
-**What we did:** Checkout surfaces a **Share tickets** control that copies/shares a web URL
-(`{origin}/checkout/{sessionId}`) plus a mobile deep link (`mobileweb://checkout/{sessionId}`).
-Possession of the id is enough to resume — unchanged from the original continuity model.
+**What we did:** Checkout surfaces a **Share tickets** control that copies/shares the web
+URL only (`{origin}/checkout/{sessionId}`). A `mobileweb://checkout/{sessionId}` URL is
+still built for local deep-link demos (`simctl` / Expo), but it is not what Copy/Share
+puts on the pasteboard — resume from share must not depend on the app already being
+installed. Possession of the id is enough to resume — unchanged from the original
+continuity model.
 
 **Why:** Matches the locked design for this pass (cross-surface takeover without an
 "open the other app on this device" strip) and keeps share UX shared via optional
@@ -273,3 +278,21 @@ already use `nanoid`, but there's no short-lived signed token or recipient bindi
 
 **What we'd do instead:** Signed, expiring resume tokens (or magic-link auth) scoped to the
 session, with optional surface binding and revoke-on-complete.
+
+## 15. Session TTL lapse also releases the inventory hold (lazy + background sweep)
+
+**What we did:** `expireIfNeeded` and `expireLapsedSessions` share a lapse helper that
+marks the session `expired` with `expiryReason: 'session_lapsed'` (CAS first), then
+`releaseHold`s. Explicit abandon (`releaseSession`) still uses `hold_released`. An
+in-process `SessionExpirySweeper` polls every 30s from the API process so abandoned tabs
+do not wait for the next fan touch.
+
+**Why:** Leaving the hold up after the session clock died stranded inventory —
+soft-conflicting with "not holding stale inventory forever." Releasing on lapse keeps the
+clocks conceptually separate (session owns resumability; inventory owns reservation) while
+ensuring checkout won't sit on sold-out seats after the fan's window closed.
+
+**Honesty limit:** the sweeper is single-process demo glue (no leader election, no durable
+job queue). Multi-replica production would need a real cron/worker and an indexed
+`expiresAt` query instead of `SessionStore.list()`. Mid-charge (`pending_payment`) is
+skipped so a sweep cannot drop inventory under an in-flight payment.

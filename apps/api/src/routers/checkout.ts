@@ -2,6 +2,7 @@ import {
   CHECKOUT_ERROR_CODE,
   checkoutSessionSchema,
   createSessionInput,
+  resumeSessionResultSchema,
   sessionIdInput,
 } from '@repo/api-contracts';
 import { TRPCError } from '@trpc/server';
@@ -55,59 +56,45 @@ function toTRPCError(error: unknown): TRPCError {
   return new TRPCError({ code: 'INTERNAL_SERVER_ERROR', cause: error });
 }
 
+function withDomainErrors<T>(run: () => Promise<T>): Promise<T> {
+  return run().catch((error: unknown) => {
+    throw toTRPCError(error);
+  });
+}
+
 export const checkoutRouter = router({
   create: publicProcedure
     .input(createSessionInput)
     .output(checkoutSessionSchema)
-    .mutation(async ({ ctx, input }) => {
-      try {
-        return await ctx.checkout.createSession(input.listingId);
-      } catch (error) {
-        throw toTRPCError(error);
-      }
-    }),
+    .mutation(({ ctx, input }) =>
+      withDomainErrors(() => ctx.checkout.createSession(input.listingId)),
+    ),
 
   resume: publicProcedure
     .input(sessionIdInput)
-    .output(checkoutSessionSchema)
-    .mutation(async ({ ctx, input }) => {
-      try {
-        return await ctx.checkout.resumeSession(input.sessionId, input.surface);
-      } catch (error) {
-        throw toTRPCError(error);
-      }
-    }),
+    .output(resumeSessionResultSchema)
+    .mutation(({ ctx, input }) =>
+      withDomainErrors(() => ctx.checkout.resumeSession(input.sessionId, input.surface)),
+    ),
 
   confirmPrice: publicProcedure
     .input(sessionIdInput)
     .output(checkoutSessionSchema)
-    .mutation(async ({ ctx, input }) => {
-      try {
-        return await ctx.checkout.confirmPrice(input.sessionId);
-      } catch (error) {
-        throw toTRPCError(error);
-      }
-    }),
+    .mutation(({ ctx, input }) =>
+      withDomainErrors(() => ctx.checkout.confirmPrice(input.sessionId)),
+    ),
 
   complete: publicProcedure
     .input(sessionIdInput)
     .output(checkoutSessionSchema)
-    .mutation(async ({ ctx, input }) => {
-      try {
-        return await ctx.checkout.completeSession(input.sessionId, input.surface);
-      } catch (error) {
-        throw toTRPCError(error);
-      }
-    }),
+    .mutation(({ ctx, input }) =>
+      withDomainErrors(() => ctx.checkout.completeSession(input.sessionId, input.surface)),
+    ),
 
   release: publicProcedure
     .input(sessionIdInput)
     .output(checkoutSessionSchema)
-    .mutation(async ({ ctx, input }) => {
-      try {
-        return await ctx.checkout.releaseSession(input.sessionId, input.surface);
-      } catch (error) {
-        throw toTRPCError(error);
-      }
-    }),
+    .mutation(({ ctx, input }) =>
+      withDomainErrors(() => ctx.checkout.releaseSession(input.sessionId, input.surface)),
+    ),
 });

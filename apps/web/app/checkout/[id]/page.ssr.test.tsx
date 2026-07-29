@@ -13,7 +13,14 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import CheckoutPage from './page';
 
 jest.mock('../../../src/trpc-client', () => ({
-  trpc: { checkout: { complete: { mutate: jest.fn() }, confirmPrice: { mutate: jest.fn() } } },
+  trpc: {
+    checkout: {
+      complete: { mutate: jest.fn() },
+      confirmPrice: { mutate: jest.fn() },
+      resume: { mutate: jest.fn() },
+      release: { mutate: jest.fn() },
+    },
+  },
 }));
 
 const session: CheckoutSession = {
@@ -48,7 +55,9 @@ afterEach(() => {
 
 describe('checkout page server render', () => {
   it('puts the listing, status and price in the HTML before hydration', async () => {
-    const fetchMock = stubFetch(200, { result: { data: session } });
+    const fetchMock = stubFetch(200, {
+      result: { data: { session, livePriceCents: session.acknowledgedPrice } },
+    });
 
     const html = await renderPage('sess_ssr');
 
@@ -66,7 +75,12 @@ describe('checkout page server render', () => {
 
   it('renders fixture-driven Super Deal when the listing has one', async () => {
     stubFetch(200, {
-      result: { data: { ...session, listingId: 'listing_1', acknowledgedPrice: 15400 } },
+      result: {
+        data: {
+          session: { ...session, listingId: 'listing_1', acknowledgedPrice: 15400 },
+          livePriceCents: 15400,
+        },
+      },
     });
 
     const html = await renderPage('sess_ssr');
@@ -83,7 +97,12 @@ describe('checkout page server render', () => {
 
   it('renders an expired session in its terminal state without client JS', async () => {
     stubFetch(200, {
-      result: { data: { ...session, status: 'expired', expiryReason: 'session_lapsed' } },
+      result: {
+        data: {
+          session: { ...session, status: 'expired', expiryReason: 'session_lapsed' },
+          livePriceCents: null,
+        },
+      },
     });
 
     const html = await renderPage('sess_ssr');
@@ -94,7 +113,12 @@ describe('checkout page server render', () => {
 
   it('renders a released inventory hold distinctly from a lapsed session', async () => {
     stubFetch(200, {
-      result: { data: { ...session, status: 'expired', expiryReason: 'hold_released' } },
+      result: {
+        data: {
+          session: { ...session, status: 'expired', expiryReason: 'hold_released' },
+          livePriceCents: null,
+        },
+      },
     });
 
     const html = await renderPage('sess_ssr');

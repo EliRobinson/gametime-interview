@@ -3,6 +3,8 @@ import type { CheckoutSession } from '@repo/api-contracts';
 export interface SessionStore {
   create(session: CheckoutSession): void;
   get(id: string): CheckoutSession | undefined;
+  /** Full scan for the in-memory prototype; production would filter by expiresAt. */
+  list(): CheckoutSession[];
   casUpdate(
     id: string,
     expectedStatus: CheckoutSession['status'],
@@ -19,6 +21,10 @@ export class InMemorySessionStore implements SessionStore {
 
   get(id: string): CheckoutSession | undefined {
     return this.sessions.get(id);
+  }
+
+  list(): CheckoutSession[] {
+    return [...this.sessions.values()];
   }
 
   // Compare-and-swap: the status check and the write happen with no `await`

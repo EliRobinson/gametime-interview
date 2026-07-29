@@ -1,12 +1,4 @@
-import type { CheckoutSession } from '@repo/api-contracts';
-
-/**
- * Share is only offered while the session is still resumable — not after
- * completion, expiry, or while another surface has claimed `pending_payment`.
- */
-export function isShareableSession(session: CheckoutSession): boolean {
-  return session.status === 'created' || session.status === 'active' || session.status === 'failed';
-}
+export { isShareableSession } from './checkout.policy.util';
 
 export function buildCheckoutShareUrls(
   sessionId: string,

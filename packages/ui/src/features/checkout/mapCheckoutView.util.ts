@@ -27,6 +27,22 @@ export function viewFromSession(
   return { kind: 'ready', session, notice, previousUnitPriceCents };
 }
 
+/**
+ * Maps a resume payload. When the live hold price diverges from what the fan
+ * acknowledged, surface price_changed from the server clock — not a client timer.
+ */
+export function viewFromResume(
+  session: CheckoutSession,
+  livePriceCents: number | null,
+): CheckoutView {
+  const base = viewFromSession(session);
+  if (base.kind !== 'ready') return base;
+  if (livePriceCents !== null && livePriceCents !== session.acknowledgedPrice) {
+    return { kind: 'price_changed', session, newPriceCents: livePriceCents };
+  }
+  return base;
+}
+
 export function viewFromErrorCode(code: string | null, session?: CheckoutSession): CheckoutView {
   switch (code) {
     case CHECKOUT_ERROR_CODE.NOT_FOUND:

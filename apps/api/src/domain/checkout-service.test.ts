@@ -43,16 +43,34 @@ describe('CheckoutService', () => {
     expect(completed.status).toBe('completed');
   });
 
+  it('returns live hold price on resume so clients can map price_changed', async () => {
+    const { service, inventory } = setup();
+    const session = await service.createSession('listing_1');
+    inventory.setPrice('listing_1', 5000);
+
+    const resumed = await service.resumeSession(session.id, 'web');
+
+    expect(resumed.session.status).toBe('active');
+    expect(resumed.livePriceCents).toBe(5000);
+  });
+
   it('expires a session once its expiresAt has passed', async () => {
     jest.useFakeTimers().setSystemTime(new Date('2026-01-01T00:00:00.000Z'));
-    const { service } = setup();
-    const session = await service.createSession('listing_1');
+    try {
+      const { service, inventory } = setup();
+      const session = await service.createSession('listing_1');
 
-    jest.setSystemTime(new Date('2026-01-01T00:11:00.000Z'));
-    const resumed = await service.resumeSession(session.id, 'mobile');
+      jest.setSystemTime(new Date('2026-01-01T00:11:00.000Z'));
+      const resumed = await service.resumeSession(session.id, 'mobile');
 
-    expect(resumed.status).toBe('expired');
-    jest.useRealTimers();
+      expect(resumed.session.status).toBe('expired');
+      expect(resumed.session.expiryReason).toBe('session_lapsed');
+      // TTL lapse must free inventory — otherwise the listing stays held forever.
+      await expect(inventory.getHoldStatus('listing_1')).resolves.toMatchObject({ held: false });
+      await expect(service.createSession('listing_1')).resolves.toMatchObject({ status: 'active' });
+    } finally {
+      jest.useRealTimers();
+    }
   });
 
   it('marks a session expired on resume if inventory hold was released independently', async () => {
@@ -62,7 +80,7 @@ describe('CheckoutService', () => {
 
     const resumed = await service.resumeSession(session.id, 'web');
 
-    expect(resumed.status).toBe('expired');
+    expect(resumed.session.status).toBe('expired');
   });
 
   it('blocks completion when price changed and has not been reconfirmed', async () => {
@@ -145,10 +163,11 @@ describe('CheckoutService', () => {
       inventory.releaseListing('listing_2');
       const dropped = await service.resumeSession(held.id, 'web');
 
-      expect(lapsed.status).toBe('expired');
-      expect(lapsed.expiryReason).toBe('session_lapsed');
-      expect(dropped.status).toBe('expired');
-      expect(dropped.expiryReason).toBe('hold_released');
+      expect(lapsed.session.status).toBe('expired');
+      expect(lapsed.session.expiryReason).toBe('session_lapsed');
+      await expect(inventory.getHoldStatus('listing_1')).resolves.toMatchObject({ held: false });
+      expect(dropped.session.status).toBe('expired');
+      expect(dropped.session.expiryReason).toBe('hold_released');
     } finally {
       jest.useRealTimers();
     }
@@ -271,5 +290,90 @@ describe('CheckoutService', () => {
       status: 'completed',
     });
     jest.useRealTimers();
+  });
+
+  describe('expireLapsedSessions', () => {
+    it.each([
+      {
+        name: 'active session past TTL',
+        listingId: 'listing_1',
+        advanceMs: 11 * 60 * 1000,
+        mutate: null as null | 'pending_payment',
+        expectSwept: 1,
+        expectHeld: false,
+        expectStatus: 'expired' as const,
+        expectReason: 'session_lapsed' as const,
+      },
+      {
+        name: 'active session still within TTL',
+        listingId: 'listing_1',
+        advanceMs: 60 * 1000,
+        mutate: null as null | 'pending_payment',
+        expectSwept: 0,
+        expectHeld: true,
+        expectStatus: 'active' as const,
+        expectReason: undefined,
+      },
+      {
+        name: 'pending_payment past TTL',
+        listingId: 'listing_1',
+        advanceMs: 11 * 60 * 1000,
+        mutate: 'pending_payment' as const,
+        expectSwept: 0,
+        expectHeld: true,
+        expectStatus: 'pending_payment' as const,
+        expectReason: undefined,
+      },
+    ])(
+      'handles $name',
+      async ({
+        listingId,
+        advanceMs,
+        mutate,
+        expectSwept,
+        expectHeld,
+        expectStatus,
+        expectReason,
+      }) => {
+        jest.useFakeTimers().setSystemTime(new Date('2026-01-01T00:00:00.000Z'));
+        try {
+          const { service, store, inventory } = setup();
+          const session = await service.createSession(listingId);
+          if (mutate) {
+            store.casUpdate(session.id, 'active', (current) => ({
+              ...current,
+              status: mutate,
+            }));
+          }
+
+          jest.advanceTimersByTime(advanceMs);
+          await expect(service.expireLapsedSessions()).resolves.toBe(expectSwept);
+
+          const after = store.get(session.id);
+          expect(after?.status).toBe(expectStatus);
+          expect(after?.expiryReason).toBe(expectReason);
+          await expect(inventory.getHoldStatus(listingId)).resolves.toMatchObject({
+            held: expectHeld,
+          });
+        } finally {
+          jest.useRealTimers();
+        }
+      },
+    );
+
+    it('leaves completed sessions and their sold inventory alone', async () => {
+      jest.useFakeTimers().setSystemTime(new Date('2026-01-01T00:00:00.000Z'));
+      try {
+        const { service, inventory } = setup();
+        const session = await service.createSession('listing_1');
+        await service.completeSession(session.id, 'web');
+
+        jest.advanceTimersByTime(11 * 60 * 1000);
+        await expect(service.expireLapsedSessions()).resolves.toBe(0);
+        await expect(inventory.getHoldStatus('listing_1')).resolves.toMatchObject({ held: true });
+      } finally {
+        jest.useRealTimers();
+      }
+    });
   });
 });

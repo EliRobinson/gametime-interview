@@ -1,10 +1,14 @@
 import { expect, test } from '@playwright/test';
 
-test('home screen loads and increments counter', async ({ page }) => {
+test('home screen loads listings and starts checkout', async ({ page }) => {
   await page.goto('/');
 
-  await expect(page.getByText('Count: 0')).toBeVisible();
+  await expect(page.getByTestId('home-selection')).toBeVisible();
+  await expect(page.getByTestId('selection-screen')).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByText(/Ed Sheeran/)).toBeVisible();
 
-  await page.getByTestId('increment-button').click();
-  await expect(page.getByText('Count: 1')).toBeVisible();
+  await page.getByTestId('listing-card-listing_1').click();
+  await page.getByTestId('listing-continue').click();
+
+  await expect(page).toHaveURL(/\/checkout\//, { timeout: 15_000 });
 });
